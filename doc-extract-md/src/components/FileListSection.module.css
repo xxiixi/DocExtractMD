@@ -1,0 +1,174 @@
+/* 文件列表项基础样式 */
+.file-item {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: fit-content; /* 确保高度适应内容 */
+}
+
+.file-item--default:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+.file-item--selected {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.05);
+}
+
+/* 文件项头部布局 */
+.file-item__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  width: 100%;
+  min-width: 0; /* 允许flex子元素收缩 */
+  gap: 0.5rem; /* 添加间距，防止文件名和按钮重叠 */
+}
+
+.file-item__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+.file-item__icon {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+/* 文件名容器和文本 */
+.file-item__name-container {
+  flex: 1;
+  min-width: 0;
+  max-width: 200px; /* 增加最大宽度，因为状态标签已移到右下角 */
+  overflow: visible; /* 允许内容溢出，显示完整文件名 */
+}
+
+.file-item__name {
+  word-break: break-words;
+  font-size: 0.875rem;
+  line-height: 1.4; /* 增加行高，提高多行文本的可读性 */
+  white-space: normal; /* 允许换行 */
+  overflow: visible; /* 允许内容溢出 */
+  text-overflow: unset; /* 移除省略号 */
+  display: block; /* 改为块级元素，支持多行 */
+  hyphens: auto; /* 自动连字符，改善长单词的换行 */
+}
+
+/* 操作按钮区域 */
+.file-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem; /* 减小按钮间距 */
+  flex-shrink: 0;
+  min-width: fit-content; /* 确保按钮不会被压缩 */
+  align-self: flex-start; /* 确保按钮始终在顶部 */
+}
+
+/* 底部信息区域 - 左右布局 */
+.file-item__bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 0.5rem;
+  gap: 1rem;
+}
+
+/* 左侧区域：文件大小和进度 */
+.file-item__left {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 文件信息 */
+.file-item__info {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+/* 进度条 */
+.file-item__progress {
+  height: 0.5rem;
+  width: 100%;
+  max-width: 200px;
+}
+
+/* 错误信息 */
+.file-item__error {
+  color: hsl(var(--destructive));
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* 右侧状态标签区域 */
+.file-item__status-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .file-item__name-container {
+    max-width: 180px; /* 在小屏幕上增加文件名容器宽度，允许更多换行 */
+  }
+  
+  .file-item__actions {
+    gap: 0.125rem; /* 在小屏幕上进一步减小按钮间距 */
+  }
+  
+  .file-item {
+    padding: 0.5rem; /* 在小屏幕上减小内边距 */
+  }
+  
+  .file-item__bottom {
+    gap: 0.5rem; /* 在小屏幕上减小左右区域间距 */
+  }
+  
+  .file-item__progress {
+    max-width: 150px; /* 在小屏幕上减小进度条最大宽度 */
+  }
+}
+
+@media (max-width: 480px) {
+  .file-item__name-container {
+    max-width: 140px; /* 在超小屏幕上增加宽度，允许更多换行 */
+  }
+  
+  .file-item__header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .file-item__actions {
+    align-self: flex-end;
+  }
+  
+  .file-item__bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .file-item__status-area {
+    gap: 0.25rem; /* 在小屏幕上减小标签间距 */
+    justify-content: flex-start; /* 在小屏幕上左对齐 */
+  }
+  
+  .file-item__progress {
+    max-width: 100%; /* 在超小屏幕上进度条占满宽度 */
+  }
+}

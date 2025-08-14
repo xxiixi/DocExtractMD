@@ -18,10 +18,10 @@ export const defaultApiConfig: ApiConfig = {
   timeout: 30000,
   retries: 3,
   endpoints: {
-    upload: '/api/upload',
-    parse: '/api/parse',
-    extract: '/api/extract',
-    convert: '/api/convert',
+    upload: '/api/extract-text',
+    parse: '/api/extract-text',
+    extract: '/api/extract-text',
+    convert: '/api/extract-text',
   },
 };
 
@@ -40,9 +40,13 @@ export interface UploadResponse {
 }
 
 export interface ParseResponse {
-  markdown: string;
-  success: boolean;
-  error?: string;
+  filename: string;
+  file_size: number;
+  file_type: string;
+  extracted_text: string;
+  text_length: number;
+  status: string;
+  error_message?: string;
 }
 
 // API客户端类
@@ -91,7 +95,7 @@ export class ApiClient {
     }
   }
 
-  // 文件上传
+  // 文件上传和解析（统一使用extract-text接口）
   async uploadFile(file: File): Promise<ApiResponse<UploadResponse>> {
     const formData = new FormData();
     formData.append('file', file);
@@ -116,12 +120,46 @@ export class ApiClient {
     }
   }
 
-  // 解析文件
-  async parseFile(fileName: string): Promise<ApiResponse<ParseResponse>> {
-    return this.request<ParseResponse>(this.getFullUrl(this.config.endpoints.parse), {
-      method: 'POST',
-      body: JSON.stringify({ file_name: fileName }),
-    });
+  // 解析文件（直接上传并解析）
+  async parseFile(file: File): Promise<ApiResponse<ParseResponse>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = this.getFullUrl(this.config.endpoints.parse);
+    console.log('Sending request to:', url);
+    console.log('File info:', { name: file.name, type: file.type, size: file.size });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Response error:', errorData);
+        throw new Error(errorData.detail || `Parse failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      // 后端返回的格式是 { success: true, data: {...} }
+      if (data.success && data.data) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, error: data.detail || 'Parse failed' };
+      }
+    } catch (error) {
+      console.error('Request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Parse failed',
+      };
+    }
   }
 
   // 提取内容（预留接口）

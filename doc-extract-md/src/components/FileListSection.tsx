@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { UploadedFile } from '@/types';
+import styles from './FileListSection.module.css';
 
 interface FileListSectionProps {
   files: UploadedFile[];
@@ -51,21 +52,9 @@ export default function FileListSection({
 
   // 样式常量
   const fileItemStyles = {
-    base: "p-3 border rounded-lg cursor-pointer transition-colors",
-    selected: "border-primary bg-primary/5",
-    default: "border-border hover:border-primary/50"
-  };
-
-  const fileItemLayout = {
-    header: "flex items-start justify-between mb-2",
-    content: "flex items-start gap-2 flex-1 min-w-0",
-    iconContainer: "flex-shrink-0 mt-0.5",
-    nameContainer: "flex-1 min-w-0",
-    nameText: "break-words",
-    actions: "flex items-center gap-2 flex-shrink-0 ml-2",
-    fileInfo: "text-muted-foreground text-sm",
-    progress: "h-2 mt-2",
-    error: "text-destructive mt-2 text-sm"
+    base: styles['file-item'],
+    selected: styles['file-item--selected'],
+    default: styles['file-item--default']
   };
 
   const getStatusBadge = (status: UploadedFile['status']) => {
@@ -138,18 +127,21 @@ export default function FileListSection({
                 className={getFileItemClassName(selectedFile === file.id)}
                 onClick={() => onFileSelect(file.id)}
               >
-                <div className={fileItemLayout.header}>
-                  <div className={fileItemLayout.content}>
-                    <div className={fileItemLayout.iconContainer}>
+                <div className={styles['file-item__header']}>
+                  <div className={styles['file-item__content']}>
+                    <div className={styles['file-item__icon']}>
                       {getStatusIcon(file.status)}
                     </div>
-                    <div className={fileItemLayout.nameContainer}>
-                      <div className={fileItemLayout.nameText}>{file.name}</div>
+                    <div className={styles['file-item__name-container']}>
+                      <div 
+                        className={styles['file-item__name']}
+                        title={file.name}
+                      >
+                        {file.name}
+                      </div>
                     </div>
                   </div>
-                  <div className={fileItemLayout.actions}>
-                    {getFileTypeBadge(file.type)}
-                    {getStatusBadge(file.status)}
+                  <div className={styles['file-item__actions']}>
                     {file.status === 'error' && onFileRetry && (
                       <Button
                         variant="ghost"
@@ -176,23 +168,21 @@ export default function FileListSection({
                   </div>
                 </div>
                 
-                <div className={fileItemLayout.fileInfo}>
-                  <span>{formatFileSize(file.size)}</span>
-                  {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
-                    <span className="ml-2">• {file.progress}%</span>
-                  )}
-                </div>
-
-                {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
-                  <Progress value={file.progress} className={fileItemLayout.progress} />
-                )}
-
-                {file.error && (
-                  <p className={fileItemLayout.error}>{file.error}</p>
-                )}
-
-                {/* 处理历史 */}
-                {file.processHistory && file.processHistory.length > 0 && (
+                {/* 底部信息区域 - 左右布局 */}
+                <div className={styles['file-item__bottom']}>
+                  {/* 左侧：文件大小和进度 */}
+                  <div className={styles['file-item__left']}>
+                    <div className={styles['file-item__info']}>
+                      <span>{formatFileSize(file.size)}</span>
+                      {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
+                        <span className="ml-2">• {file.progress}%</span>
+                      )}
+                    </div>
+                    
+                    {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
+                      <Progress value={file.progress} className={styles['file-item__progress']} />
+                    )}
+                                    {file.processHistory && file.processHistory.length > 0 && (
                   <div className="mt-2 text-xs text-muted-foreground">
                     {file.processHistory.map((step, index) => (
                       <div key={index} className="flex items-center gap-2">
@@ -211,6 +201,21 @@ export default function FileListSection({
                     ))}
                   </div>
                 )}
+                  </div>
+                  
+                  {/* 右侧：状态标签 */}
+                  <div className={styles['file-item__status-area']}>
+                    {getFileTypeBadge(file.type)}
+                    {getStatusBadge(file.status)}
+                  </div>
+                </div>
+
+                {file.error && (
+                  <p className={styles['file-item__error']}>{file.error}</p>
+                )}
+
+                {/* 处理历史 */}
+
               </div>
             ))
           )}

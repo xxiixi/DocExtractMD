@@ -65,7 +65,18 @@ export default function Home() {
       // 使用文件处理服务批量处理文件
       const result = await FileProcessor.processFiles(files, type, options);
       
-      if (!result.success) {
+      if (result.success && result.updatedFiles) {
+        // 更新文件状态
+        console.log('Updating files state with:', result.updatedFiles.map(f => ({
+          id: f.id,
+          name: f.name,
+          status: f.status,
+          hasMarkdown: !!f.markdown,
+          markdownLength: f.markdown?.length
+        })));
+        setFiles(result.updatedFiles);
+        console.log('Files updated successfully');
+      } else {
         console.error('Processing failed:', result.error);
       }
     } catch (error) {

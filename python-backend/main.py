@@ -1,120 +1,133 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pandas as pd
-import json
-import base64
-from PIL import Image
-from io import BytesIO, StringIO
+"""
+表现层 - FastAPI应用入口，处理HTTP请求和响应
+"""
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from typing import List
+import uvicorn
 import os
 
-app = Flask(__name__)
-CORS(app)  # 解决跨域问题
+from service import FileProcessingService
 
-# 支持的文件类型及其处理函数映射
-SUPPORTED_FILE_TYPES = {
-    'text/csv': 'parse_csv',
-    'application/json': 'parse_json',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'parse_excel',
-    'application/vnd.ms-excel': 'parse_excel',
-    'image/jpeg': 'parse_image',
-    'image/png': 'parse_image',
-    'text/plain': 'parse_text'
-}
+# 创建FastAPI应用实例
+app = FastAPI(
+    title="文档文字提取服务",
+    description="支持TXT和PDF文件的文字内容提取",
+    version="1.0.0"
+)
 
-def parse_csv(file_content):
-    """解析CSV文件"""
-    try:
-        df = pd.read_csv(StringIO(file_content.decode('utf-8')))
-        return {
-            'table_data': {
-                'headers': df.columns.tolist(),
-                'rows': df.values.tolist()
-            }
-        }
-    except Exception as e:
-        raise Exception(f"CSV解析错误: {str(e)}")
+# 配置CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 生产环境中应该指定具体的域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def parse_json(file_content):
-    """解析JSON文件"""
-    try:
-        json_data = json.loads(file_content.decode('utf-8'))
-        return {'json_data': json_data}
-    except Exception as e:
-        raise Exception(f"JSON解析错误: {str(e)}")
+# 创建文件处理服务实例
+file_service = FileProcessingService()
 
-def parse_excel(file_content):
-    """解析Excel文件"""
-    try:
-        df = pd.read_excel(BytesIO(file_content))
-        return {
-            'table_data': {
-                'headers': df.columns.tolist(),
-                'rows': df.values.tolist()
-            }
-        }
-    except Exception as e:
-        raise Exception(f"Excel解析错误: {str(e)}")
 
-def parse_image(file_content):
-    """解析图片文件"""
-    try:
-        img = Image.open(BytesIO(file_content))
-        # 将图片转换为base64编码
-        buffered = BytesIO()
-        img.save(buffered, format=img.format)
-        img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-        
-        return {
-            'base64': img_base64,
-            'width': img.width,
-            'height': img.height,
-            'format': img.format
-        }
-    except Exception as e:
-        raise Exception(f"图片解析错误: {str(e)}")
+@app.get("/")
+async def root():
+    """根路径，返回服务信息"""
+    return {
+        "message": "文档文字提取服务",
+        "version": "1.0.0",
+        "description": "支持TXT和PDF文件的文字内容提取"
+    }
 
-def parse_text(file_content):
-    """解析文本文件"""
-    try:
-        text = file_content.decode('utf-8')
-        return {'text_data': text}
-    except Exception as e:
-        raise Exception(f"文本解析错误: {str(e)}")
 
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'message': '未找到文件'}), 400
+@app.get("/api/supported-types")
+async def get_supported_file_types():
+    """获取支持的文件类型信息"""
+    return file_service.get_supported_file_types()
+
+
+@app.post("/api/extract-text")
+async def extract_text_from_file(file: UploadFile = File(...)):
+    """
+    从单个文件提取文字内容
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'message': '未选择文件'}), 400
-    
-    # 检查文件类型是否支持
-    if file.content_type not in SUPPORTED_FILE_TYPES:
-        return jsonify({
-            'message': f'不支持的文件类型: {file.content_type}'
-        }), 400
-    
+    Args:
+        file: 上传的文件
+        
+    Returns:
+        提取的文字内容
+    """
     try:
-        # 读取文件内容
-        file_content = file.read()
+        # 调用业务逻辑层处理文件
+        result = await file_service.process_file(file)
         
-        # 根据文件类型选择相应的解析函数
-        parse_func_name = SUPPORTED_FILE_TYPES[file.content_type]
-        parse_func = globals()[parse_func_name]
+        if result["status"] == "error":
+            raise HTTPException(status_code=400, detail=result["error_message"])
         
-        # 解析文件并返回结果
-        result = parse_func(file_content)
-        return jsonify(result)
+        return {
+            "success": True,
+            "data": result
+        }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'message': str(e)}), 500
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
 
-if __name__ == '__main__':
+
+@app.post("/api/extract-text-multiple")
+async def extract_text_from_multiple_files(files: List[UploadFile] = File(...)):
+    """
+    从多个文件提取文字内容
+    
+    Args:
+        files: 上传的文件列表
+        
+    Returns:
+        所有文件的提取结果
+    """
+    try:
+        if not files:
+            raise HTTPException(status_code=400, detail="请至少上传一个文件")
+        
+        # 调用业务逻辑层处理多个文件
+        result = await file_service.process_multiple_files(files)
+        
+        return {
+            "success": True,
+            "data": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """全局异常处理器"""
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "服务器内部错误",
+            "detail": str(exc)
+        }
+    )
+
+
+if __name__ == "__main__":
     # 确保上传目录存在
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
     
-    app.run(debug=True)
+    # 启动服务器
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
     

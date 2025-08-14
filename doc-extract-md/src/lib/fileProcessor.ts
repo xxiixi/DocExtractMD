@@ -93,7 +93,7 @@ export class FileProcessor {
       if (response.success && response.data) {
         return {
           success: true,
-          fileName: response.data.fileName
+          fileName: response.data.fileName || file.name
         };
       } else {
         return {
@@ -110,22 +110,38 @@ export class FileProcessor {
   }
 
   // 解析文件
-  static async parseFile(fileName: string): Promise<{ success: boolean; markdown?: string; error?: string }> {
+  static async parseFile(file: File): Promise<{ success: boolean; markdown?: string; error?: string }> {
+    console.log('Parsing file:', file.name, file.type, file.size);
+    
     try {
-      const response = await apiClient.parseFile(fileName);
+      const response = await apiClient.parseFile(file);
+      console.log('API response:', response);
       
       if (response.success && response.data) {
-        return {
-          success: true,
-          markdown: response.data.markdown
-        };
+        // 后端返回的数据格式
+        const result = response.data;
+        console.log('Parse result:', result);
+        
+        if (result.status === 'success') {
+          return {
+            success: true,
+            markdown: result.extracted_text || ''
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error_message || 'Parse failed'
+          };
+        }
       } else {
+        console.error('API response error:', response.error);
         return {
           success: false,
           error: response.error || 'Parse failed'
         };
       }
     } catch (error) {
+      console.error('Parse error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Parse failed'
@@ -186,7 +202,9 @@ export class FileProcessor {
     files: UploadedFile[],
     processType: ProcessType = 'parse',
     options?: ProcessOptions
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
+    console.log('Starting file processing...', { processType, filesCount: files.length });
+    
     // 对于txt文件，即使状态是completed也可以处理
     const processableFiles = files.filter(f => 
       f.status === 'uploaded' || (f.type === 'text' && f.status === 'completed')
@@ -195,6 +213,8 @@ export class FileProcessor {
     if (processableFiles.length === 0) {
       return { success: false, error: 'No files to process' };
     }
+
+    console.log('Processable files:', processableFiles.map(f => ({ name: f.name, type: f.type, status: f.status })));
 
     for (const file of processableFiles) {
       try {
@@ -205,15 +225,15 @@ export class FileProcessor {
         }
 
         // 更新状态为处理中
-        this.updateFileStatus(files, file.id, { status: 'processing', progress: 0 });
-        this.addProcessStep(files, file.id, { type: processType, status: 'running' });
+        files = this.updateFileStatus(files, file.id, { status: 'processing', progress: 0 });
+        files = this.addProcessStep(files, file.id, { type: processType, status: 'running' });
 
         if (!file.file) {
           throw new Error('File not found');
         }
 
         // 上传文件
-        this.updateFileStatus(files, file.id, { progress: 25 });
+        files = this.updateFileStatus(files, file.id, { progress: 25 });
         const uploadResult = await this.uploadFile(file.file);
         
         if (!uploadResult.success) {
@@ -221,12 +241,12 @@ export class FileProcessor {
         }
 
         // 根据处理类型执行相应操作
-        this.updateFileStatus(files, file.id, { progress: 50 });
+        files = this.updateFileStatus(files, file.id, { progress: 50 });
         
         let processResult;
         switch (processType) {
           case 'parse':
-            processResult = await this.parseFile(uploadResult.fileName!);
+            processResult = await this.parseFile(file.file!);
             break;
           case 'extract':
             processResult = await this.extractContent(uploadResult.fileName!, options?.extractOptions);
@@ -246,28 +266,38 @@ export class FileProcessor {
         const resultContent = 'markdown' in processResult ? processResult.markdown : 
                              'content' in processResult ? processResult.content : 
                              'convertedFile' in processResult ? processResult.convertedFile : '';
-        this.updateFileStatus(files, file.id, { 
+        
+        console.log('Updating file status to completed with content length:', resultContent?.length);
+        
+        files = this.updateFileStatus(files, file.id, { 
           status: 'completed', 
           progress: 100,
           markdown: resultContent
         });
         
-        this.addProcessStep(files, file.id, { 
+        files = this.addProcessStep(files, file.id, { 
           type: processType, 
           status: 'completed',
           result: processResult
+        });
+        
+        console.log('File processing completed:', {
+          fileId: file.id,
+          fileName: file.name,
+          status: 'completed',
+          contentLength: resultContent?.length
         });
 
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
         
-        this.updateFileStatus(files, file.id, { 
+        files = this.updateFileStatus(files, file.id, { 
           status: 'error', 
           progress: 0,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
         
-        this.addProcessStep(files, file.id, { 
+        files = this.addProcessStep(files, file.id, { 
           type: processType, 
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -275,6 +305,6 @@ export class FileProcessor {
       }
     }
 
-    return { success: true };
+    return { success: true, updatedFiles: files };
   }
 }
