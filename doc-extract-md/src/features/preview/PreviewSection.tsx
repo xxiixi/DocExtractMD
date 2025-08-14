@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { FileText, AlertCircle, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { UploadedFile } from '@/types';
 
 interface PreviewSectionProps {
@@ -20,6 +21,13 @@ export default function PreviewSection({
   files,
   selectedFile
 }: PreviewSectionProps) {
+  const [expandedContent, setExpandedContent] = useState<Record<string, boolean>>({});
+  
+  // 内容截断配置
+  const MAX_PREVIEW_LENGTH = 2000; // 字符数限制
+  const MAX_PREVIEW_LINES = 50; // 行数限制
+  const MIN_CONTENT_HEIGHT = '400px'; // 内容区域最小高度
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -54,6 +62,38 @@ export default function PreviewSection({
     );
   };
 
+  // 处理内容截断
+  const processContent = (content: string, fileId: string) => {
+    const isExpanded = expandedContent[fileId];
+    
+    if (isExpanded) {
+      return content;
+    }
+
+    // 按行数截断
+    const lines = content.split('\n');
+    if (lines.length <= MAX_PREVIEW_LINES) {
+      return content;
+    }
+
+    const truncatedLines = lines.slice(0, MAX_PREVIEW_LINES);
+    return truncatedLines.join('\n') + '\n...';
+  };
+
+  // 检查是否需要截断
+  const needsTruncation = (content: string) => {
+    const lines = content.split('\n');
+    return lines.length > MAX_PREVIEW_LINES || content.length > MAX_PREVIEW_LENGTH;
+  };
+
+  // 切换展开状态
+  const toggleExpanded = (fileId: string) => {
+    setExpandedContent(prev => ({
+      ...prev,
+      [fileId]: !prev[fileId]
+    }));
+  };
+
   return (
     <Card className="p-6 h-full">
       {selectedFile ? (
@@ -73,7 +113,7 @@ export default function PreviewSection({
               </div>
 
               {file.status === 'completed' && (file.markdown || file.content || file.type === 'text') ? (
-                <Tabs defaultValue="preview" className="flex-1 flex flex-col">
+                <Tabs defaultValue="preview" className="flex-1 flex flex-col min-h-0">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="preview">Preview</TabsTrigger>
                     <TabsTrigger value="raw">
@@ -81,76 +121,138 @@ export default function PreviewSection({
                     </TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="preview" className="flex-1">
-                    <ScrollArea className="h-full border rounded-lg p-6">
-                      {file.type === 'text' ? (
-                        <div className="prose prose-sm max-w-none">
-                          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                            {file.markdown || file.content}
-                          </pre>
+                  <TabsContent value="preview" className="flex-1 min-h-0">
+                    <div 
+                      className="border rounded-lg flex flex-col" 
+                      style={{ 
+                        minHeight: MIN_CONTENT_HEIGHT,
+                        height: '100%'
+                      }}
+                    >
+                      <ScrollArea className="flex-1">
+                        <div className="p-6">
+                          {file.type === 'text' ? (
+                            <div className="prose prose-sm max-w-none">
+                              <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                                {processContent(file.markdown || file.content || '', file.id)}
+                              </pre>
+                            </div>
+                          ) : (
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown 
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  h1: ({children}) => <h1 className="text-2xl font-bold mb-4 mt-6 first:mt-0">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
+                                  h3: ({children}) => <h3 className="text-lg font-semibold mb-2 mt-4">{children}</h3>,
+                                  p: ({children}) => <p className="mb-3 leading-relaxed">{children}</p>,
+                                  ul: ({children}) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+                                  ol: ({children}) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+                                  li: ({children}) => <li className="ml-4">{children}</li>,
+                                  code: ({children, className}) => {
+                                    const isInline = !className;
+                                    if (isInline) {
+                                      return <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{children}</code>;
+                                    }
+                                    return (
+                                      <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-3">
+                                        <code className="text-sm font-mono">{children}</code>
+                                      </pre>
+                                    );
+                                  },
+                                  blockquote: ({children}) => (
+                                    <blockquote className="border-l-4 border-primary pl-4 italic mb-3">
+                                      {children}
+                                    </blockquote>
+                                  ),
+                                  strong: ({children}) => <strong className="font-bold">{children}</strong>,
+                                  em: ({children}) => <em className="italic">{children}</em>,
+                                  table: ({children}) => (
+                                    <div className="overflow-x-auto mb-3">
+                                      <table className="min-w-full border-collapse border border-border">
+                                        {children}
+                                      </table>
+                                    </div>
+                                  ),
+                                  th: ({children}) => (
+                                    <th className="border border-border px-3 py-2 bg-muted font-semibold text-left">
+                                      {children}
+                                    </th>
+                                  ),
+                                  td: ({children}) => (
+                                    <td className="border border-border px-3 py-2">
+                                      {children}
+                                    </td>
+                                  ),
+                                }}
+                              >
+                                {processContent(file.markdown || '', file.id)}
+                              </ReactMarkdown>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="prose prose-sm max-w-none">
-                          <ReactMarkdown 
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              h1: ({children}) => <h1 className="text-2xl font-bold mb-4 mt-6 first:mt-0">{children}</h1>,
-                              h2: ({children}) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
-                              h3: ({children}) => <h3 className="text-lg font-semibold mb-2 mt-4">{children}</h3>,
-                              p: ({children}) => <p className="mb-3 leading-relaxed">{children}</p>,
-                              ul: ({children}) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
-                              ol: ({children}) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
-                              li: ({children}) => <li className="ml-4">{children}</li>,
-                              code: ({children, className}) => {
-                                const isInline = !className;
-                                if (isInline) {
-                                  return <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{children}</code>;
-                                }
-                                return (
-                                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto mb-3">
-                                    <code className="text-sm font-mono">{children}</code>
-                                  </pre>
-                                );
-                              },
-                              blockquote: ({children}) => (
-                                <blockquote className="border-l-4 border-primary pl-4 italic mb-3">
-                                  {children}
-                                </blockquote>
-                              ),
-                              strong: ({children}) => <strong className="font-bold">{children}</strong>,
-                              em: ({children}) => <em className="italic">{children}</em>,
-                              table: ({children}) => (
-                                <div className="overflow-x-auto mb-3">
-                                  <table className="min-w-full border-collapse border border-border">
-                                    {children}
-                                  </table>
-                                </div>
-                              ),
-                              th: ({children}) => (
-                                <th className="border border-border px-3 py-2 bg-muted font-semibold text-left">
-                                  {children}
-                                </th>
-                              ),
-                              td: ({children}) => (
-                                <td className="border border-border px-3 py-2">
-                                  {children}
-                                </td>
-                              ),
-                            }}
+                      </ScrollArea>
+                      {needsTruncation(file.markdown || file.content || '') && (
+                        <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            onClick={() => toggleExpanded(file.id)}
+                            className="flex items-center gap-2"
                           >
-                            {file.markdown}
-                          </ReactMarkdown>
+                            {expandedContent[file.id] ? (
+                              <>
+                                <ChevronUp className="w-4 h-4" />
+                                收起内容
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-4 h-4" />
+                                展示更多
+                              </>
+                            )}
+                          </Button>
                         </div>
                       )}
-                    </ScrollArea>
+                    </div>
                   </TabsContent>
                   
-                  <TabsContent value="raw" className="flex-1">
-                    <ScrollArea className="h-full">
-                      <pre className="bg-muted p-6 rounded-lg overflow-x-auto text-sm font-mono">
-                        <code>{file.markdown || file.content}</code>
-                      </pre>
-                    </ScrollArea>
+                  <TabsContent value="raw" className="flex-1 min-h-0">
+                    <div 
+                      className="border rounded-lg flex flex-col" 
+                      style={{ 
+                        minHeight: MIN_CONTENT_HEIGHT,
+                        height: '100%'
+                      }}
+                    >
+                      <ScrollArea className="flex-1">
+                        <div className="p-6">
+                          <pre className="bg-muted p-6 rounded-lg overflow-x-auto text-sm font-mono">
+                            <code>{processContent(file.markdown || file.content || '', file.id)}</code>
+                          </pre>
+                        </div>
+                      </ScrollArea>
+                      {needsTruncation(file.markdown || file.content || '') && (
+                        <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            onClick={() => toggleExpanded(file.id)}
+                            className="flex items-center gap-2"
+                          >
+                            {expandedContent[file.id] ? (
+                              <>
+                                <ChevronUp className="w-4 h-4" />
+                                收起内容
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-4 h-4" />
+                                展示更多
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </TabsContent>
                 </Tabs>
               ) : file.status === 'error' ? (
