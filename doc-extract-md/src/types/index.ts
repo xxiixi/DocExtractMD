@@ -5,7 +5,7 @@ export type FileStatus = 'uploaded' | 'processing' | 'completed' | 'error' | 'ex
 export type FileType = 'pdf' | 'image' | 'document' | 'text';
 
 // 处理类型枚举
-export type ProcessType = 'parse' | 'extract' | 'convert' | 'analyze';
+export type ProcessType = 'parse' | 'extract' | 'convert';
 
 // 上传的文件接口
 export interface UploadedFile {
@@ -19,6 +19,7 @@ export interface UploadedFile {
   content?: string; // 原始文本内容
   error?: string;
   file?: File; // 实际的文件对象
+  currentStep?: string; // 当前处理步骤
   metadata?: {
     pages?: number;
     dimensions?: { width: number; height: number };

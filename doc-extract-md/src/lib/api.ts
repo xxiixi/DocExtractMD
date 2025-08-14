@@ -121,13 +121,16 @@ export class ApiClient {
   }
 
   // 解析文件（直接上传并解析）
-  async parseFile(file: File): Promise<ApiResponse<ParseResponse>> {
+  async parseFile(file: File, fileId?: string): Promise<ApiResponse<ParseResponse>> {
     const formData = new FormData();
     formData.append('file', file);
+    if (fileId) {
+      formData.append('file_id', fileId);
+    }
 
     const url = this.getFullUrl(this.config.endpoints.parse);
     console.log('Sending request to:', url);
-    console.log('File info:', { name: file.name, type: file.type, size: file.size });
+    console.log('File info:', { name: file.name, type: file.type, size: file.size, fileId });
 
     try {
       const response = await fetch(url, {

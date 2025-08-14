@@ -112,7 +112,7 @@ export default function FileListSection({
   };
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 min-w-[320px]">
       <h3 className="mb-4">Files ({files.length})</h3>
       <ScrollArea className="h-96">
         <div className="space-y-3">
@@ -177,12 +177,17 @@ export default function FileListSection({
                       {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
                         <span className="ml-2">• {file.progress}%</span>
                       )}
+                      {file.currentStep && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {file.currentStep}
+                        </div>
+                      )}
                     </div>
                     
                     {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
                       <Progress value={file.progress} className={styles['file-item__progress']} />
                     )}
-                                    {file.processHistory && file.processHistory.length > 0 && (
+                    {file.processHistory && file.processHistory.length > 0 && (
                   <div className="mt-2 text-xs text-muted-foreground">
                     {file.processHistory.map((step, index) => (
                       <div key={index} className="flex items-center gap-2">

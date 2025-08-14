@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import { UploadedFile, ProcessType, ProcessOptions } from '@/types';
 import { FileProcessor } from '@/lib/fileProcessor';
+import { websocketClient } from '@/lib/websocket';
 import UploadSection from '@/components/UploadSection';
 import FileListSection from '@/components/FileListSection';
 import PreviewSection from '@/components/PreviewSection';
@@ -13,6 +14,81 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processType, setProcessType] = useState<ProcessType>('parse');
+
+  // 初始化WebSocket连接
+  useEffect(() => {
+    const initWebSocket = async () => {
+      try {
+        await websocketClient.connect();
+        console.log('WebSocket connected successfully');
+        
+        // 设置进度更新回调
+        websocketClient.onProgress((update) => {
+          console.log('WebSocket progress update received:', update);
+          console.log('Current files:', files.map(f => ({ id: f.id, name: f.name, status: f.status })));
+          
+          setFiles(prevFiles => {
+            console.log('Looking for file with ID:', update.file_id);
+            console.log('Available file IDs:', prevFiles.map(f => f.id));
+            
+            const fileIndex = prevFiles.findIndex(f => f.id === update.file_id);
+            console.log('File index found:', fileIndex);
+            
+            if (fileIndex !== -1) {
+              const newFiles = [...prevFiles];
+              const file = newFiles[fileIndex];
+              console.log('Updating file:', file.name, 'with update:', update);
+              
+              switch (update.type) {
+                case 'progress_update':
+                  newFiles[fileIndex] = {
+                    ...file,
+                    progress: update.progress || 0,
+                    currentStep: update.step || ''
+                  };
+                  console.log('Updated progress to:', update.progress, '%');
+                  break;
+                case 'completion_update':
+                  newFiles[fileIndex] = {
+                    ...file,
+                    status: 'completed',
+                    progress: 100,
+                    markdown: update.result?.extracted_text || '',
+                    currentStep: 'completed'
+                  };
+                  console.log('File completed with content length:', update.result?.extracted_text?.length);
+                  break;
+                case 'error_update':
+                  newFiles[fileIndex] = {
+                    ...file,
+                    status: 'error',
+                    progress: 0,
+                    error: update.error || 'Unknown error',
+                    currentStep: 'error'
+                  };
+                  console.log('File error:', update.error);
+                  break;
+              }
+              
+              return newFiles;
+            } else {
+              console.log('File not found with ID:', update.file_id);
+            }
+            return prevFiles;
+          });
+        });
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+      }
+    };
+
+    initWebSocket();
+
+    // 清理函数
+    return () => {
+      websocketClient.disconnect();
+    };
+  }, []);
 
   const handleFileUpload = async (uploadedFiles: FileList) => {
     const newFiles: UploadedFile[] = [];
@@ -29,20 +105,8 @@ export default function Home() {
         const fileId = Date.now().toString() + i;
         const newFile = FileProcessor.createFileObject(file, fileId);
         
-        // 如果是txt文件，直接读取内容
-        if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-          try {
-            const text = await file.text();
-            newFile.content = text;
-            newFile.markdown = text; // 同时设置markdown字段用于预览
-            newFile.status = 'completed';
-            newFile.progress = 100;
-          } catch (error) {
-            console.error('Error reading txt file:', error);
-            newFile.status = 'error';
-            newFile.error = 'Failed to read text file';
-          }
-        }
+        // 所有文件都通过后端处理，包括txt文件
+        // 移除前端的txt文件特殊处理逻辑
         
         newFiles.push(newFile);
       }
@@ -52,14 +116,23 @@ export default function Home() {
   };
 
   const handleProcessFiles = async (type: ProcessType = 'parse', options?: ProcessOptions) => {
-    // 对于txt文件，即使状态是completed也可以处理
+    // 所有文件都需要通过后端处理
     const processableFiles = files.filter(f => 
-      f.status === 'uploaded' || (f.type === 'text' && f.status === 'completed')
+      f.status === 'uploaded'
     );
     if (processableFiles.length === 0) return;
 
     setIsProcessing(true);
     setProcessType(type);
+
+    // 立即更新文件状态为processing，这样Progress组件就会显示
+    setFiles(prevFiles => 
+      prevFiles.map(file => 
+        processableFiles.some(pf => pf.id === file.id) 
+          ? { ...file, status: 'processing', progress: 0 }
+          : file
+      )
+    );
 
     try {
       // 使用文件处理服务批量处理文件

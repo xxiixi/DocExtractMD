@@ -1,14 +1,16 @@
 """
 表现层 - FastAPI应用入口，处理HTTP请求和响应
 """
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import List
 import uvicorn
 import os
+import json
 
 from service import FileProcessingService
+from websocket_manager import websocket_manager
 
 # 创建FastAPI应用实例
 app = FastAPI(
@@ -47,19 +49,22 @@ async def get_supported_file_types():
 
 
 @app.post("/api/extract-text")
-async def extract_text_from_file(file: UploadFile = File(...)):
+async def extract_text_from_file(file: UploadFile = File(...), file_id: str = Form(None)):
     """
     从单个文件提取文字内容
     
     Args:
         file: 上传的文件
+        file_id: 文件ID，用于进度更新
         
     Returns:
         提取的文字内容
     """
     try:
+        print(f"收到文件处理请求: filename={file.filename}, file_id={file_id}")
+        
         # 调用业务逻辑层处理文件
-        result = await file_service.process_file(file)
+        result = await file_service.process_file(file, file_id)
         
         if result["status"] == "error":
             raise HTTPException(status_code=400, detail=result["error_message"])
@@ -73,6 +78,22 @@ async def extract_text_from_file(file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket端点，用于实时进度更新"""
+    await websocket_manager.connect(websocket)
+    try:
+        while True:
+            # 保持连接活跃
+            data = await websocket.receive_text()
+            # 可以处理客户端发送的消息（如果需要）
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        websocket_manager.disconnect(websocket)
 
 
 @app.post("/api/extract-text-multiple")

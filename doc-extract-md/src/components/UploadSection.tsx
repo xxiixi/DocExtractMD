@@ -47,9 +47,9 @@ export default function UploadSection({
   const uploadedCount = files.filter(f => f.status === 'uploaded').length;
   const processingCount = files.filter(f => f.status === 'processing').length;
   const completedCount = files.filter(f => f.status === 'completed').length;
-  // 对于txt文件，即使状态是completed也可以处理
+  // 所有文件都需要通过后端处理
   const processableCount = files.filter(f => 
-    f.status === 'uploaded' || (f.type === 'text' && f.status === 'completed')
+    f.status === 'uploaded'
   ).length;
 
   const getProcessButton = () => {

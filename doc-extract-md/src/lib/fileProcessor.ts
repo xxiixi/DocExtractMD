@@ -1,5 +1,6 @@
 import { UploadedFile, FileType, ProcessType, ProcessOptions } from '@/types';
 import { apiClient } from './api';
+import { websocketClient, ProgressUpdate } from './websocket';
 
 // 文件处理服务类
 export class FileProcessor {
@@ -30,22 +31,7 @@ export class FileProcessor {
     };
   }
 
-  // 读取txt文件内容
-  static async readTextFile(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-          resolve(result);
-        } else {
-          reject(new Error('Failed to read file as text'));
-        }
-      };
-      reader.onerror = () => reject(new Error('File reading failed'));
-      reader.readAsText(file);
-    });
-  }
+  // 移除本地txt文件读取方法，所有文件都通过后端处理
 
   // 更新文件状态
   static updateFileStatus(
@@ -110,11 +96,11 @@ export class FileProcessor {
   }
 
   // 解析文件
-  static async parseFile(file: File): Promise<{ success: boolean; markdown?: string; error?: string }> {
-    console.log('Parsing file:', file.name, file.type, file.size);
+  static async parseFile(file: File, fileId?: string): Promise<{ success: boolean; markdown?: string; error?: string }> {
+    console.log('Parsing file:', file.name, file.type, file.size, 'fileId:', fileId);
     
     try {
-      const response = await apiClient.parseFile(file);
+      const response = await apiClient.parseFile(file, fileId);
       console.log('API response:', response);
       
       if (response.success && response.data) {
@@ -205,9 +191,9 @@ export class FileProcessor {
   ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
     console.log('Starting file processing...', { processType, filesCount: files.length });
     
-    // 对于txt文件，即使状态是completed也可以处理
+    // 所有文件都需要通过后端处理
     const processableFiles = files.filter(f => 
-      f.status === 'uploaded' || (f.type === 'text' && f.status === 'completed')
+      f.status === 'uploaded'
     );
     
     if (processableFiles.length === 0) {
@@ -218,12 +204,6 @@ export class FileProcessor {
 
     for (const file of processableFiles) {
       try {
-        // 如果是txt文件且已经有内容，直接标记为完成
-        if (file.type === 'text' && file.content && file.status === 'completed') {
-          // txt文件已经处理完成，跳过
-          continue;
-        }
-
         // 更新状态为处理中
         files = this.updateFileStatus(files, file.id, { status: 'processing', progress: 0 });
         files = this.addProcessStep(files, file.id, { type: processType, status: 'running' });
@@ -232,27 +212,25 @@ export class FileProcessor {
           throw new Error('File not found');
         }
 
-        // 上传文件
-        files = this.updateFileStatus(files, file.id, { progress: 25 });
-        const uploadResult = await this.uploadFile(file.file);
-        
-        if (!uploadResult.success) {
-          throw new Error(uploadResult.error || 'Upload failed');
-        }
-
         // 根据处理类型执行相应操作
-        files = this.updateFileStatus(files, file.id, { progress: 50 });
-        
         let processResult;
         switch (processType) {
           case 'parse':
-            processResult = await this.parseFile(file.file!);
+            processResult = await this.parseFile(file.file!, file.id);
             break;
           case 'extract':
+            const uploadResult = await this.uploadFile(file.file);
+            if (!uploadResult.success) {
+              throw new Error(uploadResult.error || 'Upload failed');
+            }
             processResult = await this.extractContent(uploadResult.fileName!, options?.extractOptions);
             break;
           case 'convert':
-            processResult = await this.convertFormat(uploadResult.fileName!, options?.convertOptions?.targetFormat || 'markdown');
+            const uploadResult2 = await this.uploadFile(file.file);
+            if (!uploadResult2.success) {
+              throw new Error(uploadResult2.error || 'Upload failed');
+            }
+            processResult = await this.convertFormat(uploadResult2.fileName!, options?.convertOptions?.targetFormat || 'markdown');
             break;
           default:
             throw new Error(`Unsupported process type: ${processType}`);

@@ -9,6 +9,7 @@
   max-width: 100%;
   box-sizing: border-box;
   min-height: fit-content; /* 确保高度适应内容 */
+  min-width: 250px; /* 设置最小宽度，确保内容不被过度压缩 */
 }
 
 .file-item--default:hover {
@@ -132,6 +133,7 @@
   
   .file-item {
     padding: 0.5rem; /* 在小屏幕上减小内边距 */
+    min-width: 260px; /* 在小屏幕上调整最小宽度 */
   }
   
   .file-item__bottom {
@@ -170,5 +172,9 @@
   
   .file-item__progress {
     max-width: 100%; /* 在超小屏幕上进度条占满宽度 */
+  }
+  
+  .file-item {
+    min-width: 240px; /* 在超小屏幕上进一步调整最小宽度 */
   }
 }
