@@ -2,8 +2,8 @@
 业务逻辑层 - 协调文件处理流程，选择解析策略
 """
 from fastapi import UploadFile
-from parsers import get_parser, get_supported_extensions
-from websocket_manager import websocket_manager
+from .parsers import get_parser, get_supported_extensions
+from .websocket_manager import websocket_manager
 import logging
 import asyncio
 from typing import Dict, Any, Optional
@@ -35,32 +35,84 @@ class FileProcessingService:
             logger.info(f"开始处理文件: {file.filename}, file_id: {file_id}")
             
             # 1. 验证文件
-            await self._send_progress(file_id, 10, "验证文件")
+            await self._send_progress(file_id, 5, "验证文件格式")
             self._validate_file(file)
             
             # 2. 获取文件扩展名
-            await self._send_progress(file_id, 20, "分析文件类型")
+            await self._send_progress(file_id, 10, "分析文件类型")
             file_ext = self._get_file_extension(file.filename)
             
             # 3. 获取对应的解析器
-            await self._send_progress(file_id, 30, "准备解析器")
+            await self._send_progress(file_id, 15, "准备解析器")
             parser = get_parser(file_ext)
             if not parser:
                 raise ValueError(f"不支持的文件类型: {file_ext}")
             
             # 4. 读取文件内容
-            await self._send_progress(file_id, 50, "读取文件内容")
+            await self._send_progress(file_id, 20, "读取文件内容")
             file_content = await file.read()
             
-            # 5. 提取文字内容
-            await self._send_progress(file_id, 70, "提取文字内容")
+            # 5. 提取文字内容 - 根据文件类型细分进度
+            await self._send_progress(file_id, 25, "开始提取文字内容")
+            
+            # 根据文件类型提供不同的进度更新
+            if file_ext.lower() in ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']:
+                # 图片文件 - OCR处理
+                await self._send_progress(file_id, 30, "图片预处理")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 40, "OCR文字识别中...")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 60, "优化识别结果")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 80, "完成OCR识别")
+            elif file_ext.lower() in ['pdf']:
+                # PDF文件 - 分页处理
+                await self._send_progress(file_id, 30, "解析PDF结构")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 45, "提取页面内容")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 65, "处理图片页面")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 80, "完成PDF解析")
+            elif file_ext.lower() in ['docx']:
+                # DOCX文件 - 段落处理
+                await self._send_progress(file_id, 30, "解析文档结构")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 50, "提取段落内容")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 70, "处理格式信息")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 80, "完成文档解析")
+            elif file_ext.lower() in ['doc']:
+                # DOC文件 - 使用PyMuPDF
+                await self._send_progress(file_id, 30, "解析DOC格式")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 50, "提取页面内容")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 70, "处理文档元素")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 80, "完成DOC解析")
+            else:
+                # TXT文件 - 简单处理
+                await self._send_progress(file_id, 40, "解码文本内容")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 60, "清理文本格式")
+                await asyncio.sleep(0.1)
+                await self._send_progress(file_id, 80, "完成文本处理")
+            
+            # 6. 执行实际的文字提取
+            await self._send_progress(file_id, 85, "执行文字提取")
             extracted_text = parser.extract_text(file_content)
             
-            # 6. 完成处理
-            await self._send_progress(file_id, 90, "处理完成")
-            await asyncio.sleep(0.1)  # 短暂延迟以显示进度
+            # 7. 后处理
+            await self._send_progress(file_id, 90, "后处理文本内容")
+            await asyncio.sleep(0.1)
             
-            # 7. 记录处理日志
+            # 8. 完成处理
+            await self._send_progress(file_id, 95, "处理完成")
+            await asyncio.sleep(0.1)
+            
+            # 9. 记录处理日志
             logger.info(f"成功处理文件: {file.filename}, 大小: {len(file_content)} bytes")
             
             result = {

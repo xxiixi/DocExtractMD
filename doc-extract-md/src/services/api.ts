@@ -6,7 +6,7 @@ export interface ApiConfig {
   endpoints: {
     upload: string;
     parse: string;
-    // 可以添加更多接口
+    // 添加更多接口
     extract?: string;
     convert?: string;
   };

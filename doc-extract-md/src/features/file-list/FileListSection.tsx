@@ -175,10 +175,10 @@ export default function FileListSection({
                     <div className={styles['file-item__info']}>
                       <span>{formatFileSize(file.size)}</span>
                       {(file.status === 'processing' || file.status === 'extracting' || file.status === 'converting') && (
-                        <span className="ml-2">• {file.progress}%</span>
+                        <span className="ml-2 font-medium text-blue-600">• {file.progress}%</span>
                       )}
                       {file.currentStep && (
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="text-xs text-blue-500 mt-1 font-medium">
                           {file.currentStep}
                         </div>
                       )}

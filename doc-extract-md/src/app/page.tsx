@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
-import { UploadedFile, ProcessType, ProcessOptions } from '@/types';
-import { FileProcessor } from '@/lib/fileProcessor';
-import { websocketClient } from '@/lib/websocket';
-import UploadSection from '@/components/UploadSection';
-import FileListSection from '@/components/FileListSection';
-import PreviewSection from '@/components/PreviewSection';
+import type { UploadedFile, ProcessType, ProcessOptions } from '@/types';
+import UploadSection from '@/features/upload/UploadSection';
+import FileListSection from '@/features/file-list/FileListSection';
+import PreviewSection from '@/features/preview/PreviewSection';
+import { websocketClient, type ProgressUpdate } from '@/services/websocket';
+import { FileProcessor } from '@/services/fileProcessor';
 
 export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -23,15 +23,15 @@ export default function Home() {
         console.log('WebSocket connected successfully');
         
         // 设置进度更新回调
-        websocketClient.onProgress((update) => {
+        websocketClient.onProgress((update: ProgressUpdate) => {
           console.log('WebSocket progress update received:', update);
-          console.log('Current files:', files.map(f => ({ id: f.id, name: f.name, status: f.status })));
+          console.log('Current files:', files.map((f: UploadedFile) => ({ id: f.id, name: f.name, status: f.status })));
           
           setFiles(prevFiles => {
             console.log('Looking for file with ID:', update.file_id);
-            console.log('Available file IDs:', prevFiles.map(f => f.id));
+            console.log('Available file IDs:', prevFiles.map((f: UploadedFile) => f.id));
             
-            const fileIndex = prevFiles.findIndex(f => f.id === update.file_id);
+            const fileIndex = prevFiles.findIndex((f: UploadedFile) => f.id === update.file_id);
             console.log('File index found:', fileIndex);
             
             if (fileIndex !== -1) {
@@ -140,7 +140,7 @@ export default function Home() {
       
       if (result.success && result.updatedFiles) {
         // 更新文件状态
-        console.log('Updating files state with:', result.updatedFiles.map(f => ({
+        console.log('Updating files state with:', result.updatedFiles.map((f: UploadedFile) => ({
           id: f.id,
           name: f.name,
           status: f.status,
@@ -173,8 +173,8 @@ export default function Home() {
     });
   };
 
-  const removeFile = (fileId: string) => {
-    setFiles(prev => prev.filter(f => f.id !== fileId));
+      const removeFile = (fileId: string) => {
+      setFiles(prev => prev.filter((f: UploadedFile) => f.id !== fileId));
     if (selectedFile === fileId) {
       setSelectedFile(null);
     }
@@ -186,7 +186,7 @@ export default function Home() {
   };
 
   const retryFile = async (fileId: string) => {
-    const file = files.find(f => f.id === fileId);
+    const file = files.find((f: UploadedFile) => f.id === fileId);
     if (!file || !file.file) return;
 
     // 重置文件状态

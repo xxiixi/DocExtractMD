@@ -9,8 +9,8 @@ import uvicorn
 import os
 import json
 
-from service import FileProcessingService
-from websocket_manager import websocket_manager
+from app.service import FileProcessingService
+from app.websocket_manager import websocket_manager
 
 # 创建FastAPI应用实例
 app = FastAPI(
