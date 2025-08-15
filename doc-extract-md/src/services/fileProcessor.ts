@@ -10,7 +10,11 @@ export class FileProcessor {
       return 'pdf';
     } else if (file.type.startsWith('image/')) {
       return 'image';
-    } else if (file.type.includes('document') || file.name.match(/\.(doc|docx|txt)$/)) {
+    } else if (file.name.match(/\.(md|markdown)$/i)) {
+      return 'markdown';
+    } else if (file.name.match(/\.txt$/i)) {
+      return 'text';
+    } else if (file.type.includes('document') || file.name.match(/\.(doc|docx)$/)) {
       return 'document';
     } else {
       return 'text';
@@ -191,9 +195,9 @@ export class FileProcessor {
   ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
     console.log('Starting file processing...', { processType, filesCount: files.length });
     
-    // 所有文件都需要通过后端处理
+    // 过滤掉纯文本文件，它们在前端处理
     const processableFiles = files.filter(f => 
-      f.status === 'uploaded'
+      f.status === 'uploaded' && f.type !== 'markdown' && f.type !== 'text'
     );
     
     if (processableFiles.length === 0) {

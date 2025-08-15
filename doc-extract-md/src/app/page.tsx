@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText } from 'lucide-react';
-import type { UploadedFile, ProcessType, ProcessOptions } from '@/types';
+import type { UploadedFile } from '@/types';
 import UploadSection from '@/features/upload/UploadSection';
 import FileListSection from '@/features/file-list/FileListSection';
 import PreviewSection from '@/features/preview/PreviewSection';
@@ -13,7 +13,8 @@ export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processType, setProcessType] = useState<ProcessType>('parse');
+
+
 
   // 初始化WebSocket连接
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function Home() {
           file.name.endsWith('.pdf') ||
           file.type.startsWith('image/') ||
           file.name.match(/\.(png|jpg|jpeg|gif|bmp|tiff)$/i) ||
-          file.name.match(/\.(doc|docx|txt)$/i)) {
+          file.name.match(/\.(doc|docx|txt|md|markdown)$/i)) {
         
         const fileId = Date.now().toString() + i;
         const newFile = FileProcessor.createFileObject(file, fileId);
@@ -115,42 +116,117 @@ export default function Home() {
     setFiles(prev => [...prev, ...newFiles]);
   };
 
-  const handleProcessFiles = async (type: ProcessType = 'parse', options?: ProcessOptions) => {
-    // 所有文件都需要通过后端处理
-    const processableFiles = files.filter(f => 
-      f.status === 'uploaded'
+  const handleParseFiles = async () => {
+    // 分离纯文本文件和其他文件
+    const textFiles = files.filter(f => 
+      f.status === 'uploaded' && 
+      (f.name.endsWith('.md') || f.name.endsWith('.markdown') || f.name.endsWith('.txt'))
     );
-    if (processableFiles.length === 0) return;
+    
+    const otherFiles = files.filter(f => 
+      f.status === 'uploaded' && 
+      !f.name.endsWith('.md') && 
+      !f.name.endsWith('.markdown') && 
+      !f.name.endsWith('.txt')
+    );
+    
+    if (textFiles.length === 0 && otherFiles.length === 0) return;
 
     setIsProcessing(true);
-    setProcessType(type);
 
-    // 立即更新文件状态为processing，这样Progress组件就会显示
+    // 立即更新所有文件状态为processing
     setFiles(prevFiles => 
       prevFiles.map(file => 
-        processableFiles.some(pf => pf.id === file.id) 
+        (textFiles.some(tf => tf.id === file.id) || otherFiles.some(of => of.id === file.id))
           ? { ...file, status: 'processing', progress: 0 }
           : file
       )
     );
 
     try {
-      // 使用文件处理服务批量处理文件
-      const result = await FileProcessor.processFiles(files, type, options);
-      
-      if (result.success && result.updatedFiles) {
-        // 更新文件状态
-        console.log('Updating files state with:', result.updatedFiles.map((f: UploadedFile) => ({
-          id: f.id,
-          name: f.name,
-          status: f.status,
-          hasMarkdown: !!f.markdown,
-          markdownLength: f.markdown?.length
-        })));
-        setFiles(result.updatedFiles);
-        console.log('Files updated successfully');
-      } else {
-        console.error('Processing failed:', result.error);
+      // 1. 先处理纯文本文件（前端直接处理）
+      for (const file of textFiles) {
+        try {
+          if (!file.file) continue;
+          
+          // 判断文件类型
+          const isMarkdown = file.name.endsWith('.md') || file.name.endsWith('.markdown');
+          const isTxt = file.name.endsWith('.txt');
+          
+          // 更新进度
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === file.id 
+                ? { ...f, progress: 25, currentStep: isMarkdown ? '读取markdown文件' : '读取文本文件' }
+                : f
+            )
+          );
+          
+          // 读取文件内容
+          const text = await file.file.text();
+          
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === file.id 
+                ? { ...f, progress: 50, currentStep: isMarkdown ? '处理markdown内容' : '处理文本内容' }
+                : f
+            )
+          );
+          
+          // 直接设置为内容
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === file.id 
+                ? { 
+                    ...f, 
+                    status: 'completed', 
+                    progress: 100, 
+                    markdown: text,
+                    currentStep: '完成'
+                  }
+                : f
+            )
+          );
+          
+          console.log(`${isMarkdown ? 'Markdown' : 'Text'}文件 ${file.name} 处理完成，内容长度: ${text.length}`);
+          
+        } catch (error) {
+          const isMarkdown = file.name.endsWith('.md') || file.name.endsWith('.markdown');
+          console.error(`处理${isMarkdown ? 'markdown' : 'text'}文件 ${file.name} 失败:`, error);
+          setFiles(prevFiles => 
+            prevFiles.map(f => 
+              f.id === file.id 
+                ? { 
+                    ...f, 
+                    status: 'error', 
+                    progress: 0, 
+                    error: error instanceof Error ? error.message : '处理失败',
+                    currentStep: '错误'
+                  }
+                : f
+            )
+          );
+        }
+      }
+
+      // 2. 处理其他文件（通过后端）
+      if (otherFiles.length > 0) {
+        const result = await FileProcessor.processFiles(files, 'parse');
+        
+        if (result.success && result.updatedFiles) {
+          // 更新文件状态
+          console.log('Updating files state with:', result.updatedFiles.map((f: UploadedFile) => ({
+            id: f.id,
+            name: f.name,
+            status: f.status,
+            hasMarkdown: !!f.markdown,
+            markdownLength: f.markdown?.length
+          })));
+          setFiles(result.updatedFiles);
+          console.log('Files updated successfully');
+        } else {
+          console.error('Processing failed:', result.error);
+        }
       }
     } catch (error) {
       console.error('Error during processing:', error);
@@ -159,22 +235,8 @@ export default function Home() {
     }
   };
 
-  const handleParseFiles = () => {
-    handleProcessFiles('parse');
-  };
-
-  const handleExtractFiles = (options?: ProcessOptions['extractOptions']) => {
-    handleProcessFiles('extract', { extractOptions: options });
-  };
-
-  const handleConvertFiles = (targetFormat: string) => {
-    handleProcessFiles('convert', { 
-      convertOptions: { targetFormat } 
-    });
-  };
-
-      const removeFile = (fileId: string) => {
-      setFiles(prev => prev.filter((f: UploadedFile) => f.id !== fileId));
+  const removeFile = (fileId: string) => {
+    setFiles(prev => prev.filter((f: UploadedFile) => f.id !== fileId));
     if (selectedFile === fileId) {
       setSelectedFile(null);
     }
@@ -197,7 +259,7 @@ export default function Home() {
     }));
 
     // 重新处理文件
-    await handleProcessFiles(processType);
+    await handleParseFiles();
   };
 
   return (
@@ -216,6 +278,9 @@ export default function Home() {
         </header>
 
         <div className="px-6 py-8">
+          
+
+
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
             {/* Upload Section */}
             <div className="md:col-span-2 space-y-6">
@@ -223,12 +288,8 @@ export default function Home() {
                 files={files}
                 onFileUpload={handleFileUpload}
                 onParseFiles={handleParseFiles}
-                onExtractFiles={handleExtractFiles}
-                onConvertFiles={handleConvertFiles}
                 onClearAllFiles={clearAllFiles}
                 isProcessing={isProcessing}
-                processType={processType}
-                onProcessTypeChange={setProcessType}
               />
 
               {/* File List */}
@@ -249,6 +310,8 @@ export default function Home() {
               />
             </div>
           </div>
+
+
         </div>
       </div>
     </div>

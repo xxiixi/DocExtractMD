@@ -2,7 +2,7 @@
 export type FileStatus = 'uploaded' | 'processing' | 'completed' | 'error' | 'extracting' | 'converting';
 
 // 文件类型枚举
-export type FileType = 'pdf' | 'image' | 'document' | 'text';
+export type FileType = 'pdf' | 'image' | 'document' | 'text' | 'markdown';
 
 // 处理类型枚举
 export type ProcessType = 'parse' | 'extract' | 'convert';

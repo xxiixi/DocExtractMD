@@ -1,33 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, Play, FileText, Image, Download } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { UploadedFile, ProcessType, ProcessOptions } from '@/types';
+import { UploadedFile } from '@/types';
 
 interface UploadSectionProps {
   files: UploadedFile[];
   onFileUpload: (files: FileList) => void;
   onParseFiles: () => void;
-  onExtractFiles?: (options?: ProcessOptions['extractOptions']) => void;
-  onConvertFiles?: (targetFormat: string) => void;
   onClearAllFiles: () => void;
   isProcessing: boolean;
-  processType: ProcessType;
-  onProcessTypeChange: (type: ProcessType) => void;
 }
 
 export default function UploadSection({
   files,
   onFileUpload,
   onParseFiles,
-  onExtractFiles,
-  onConvertFiles,
   onClearAllFiles,
-  isProcessing,
-  processType,
-  onProcessTypeChange
+  isProcessing
 }: UploadSectionProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -51,55 +43,6 @@ export default function UploadSection({
   const processableCount = files.filter(f => 
     f.status === 'uploaded'
   ).length;
-
-  const getProcessButton = () => {
-    switch (processType) {
-      case 'parse':
-        return (
-          <Button 
-            onClick={onParseFiles}
-            disabled={processableCount === 0 || isProcessing}
-            className="flex-1"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            Parse Files ({processableCount})
-          </Button>
-        );
-      case 'extract':
-        return (
-          <Button 
-            onClick={() => onExtractFiles?.()}
-            disabled={processableCount === 0 || isProcessing}
-            className="flex-1"
-          >
-            <Image className="w-4 h-4 mr-2" />
-            Extract Content ({processableCount})
-          </Button>
-        );
-      case 'convert':
-        return (
-          <Button 
-            onClick={() => onConvertFiles?.('markdown')}
-            disabled={processableCount === 0 || isProcessing}
-            className="flex-1"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Convert Files ({processableCount})
-          </Button>
-        );
-      default:
-        return (
-          <Button 
-            onClick={onParseFiles}
-            disabled={processableCount === 0 || isProcessing}
-            className="flex-1"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            Process Files ({processableCount})
-          </Button>
-        );
-    }
-  };
 
   return (
     <Card className="p-6">
@@ -128,17 +71,17 @@ export default function UploadSection({
               <input
                 type="file"
                 multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.doc,.docx,.txt,application/pdf,image/*"
+                accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.doc,.docx,.txt,.md,.markdown,application/pdf,image/*"
                 className="hidden"
                 onChange={handleFileInputChange}
               />
             </label>
           </Button>
         </div>
-        <p className="text-muted-foreground mt-4">PDF, Images, Documents, Text files</p>
+        <p className="text-muted-foreground mt-4">PDF, Images, Documents, Text files, Markdown files</p>
       </div>
 
-      {/* Process Type Selection */}
+      {/* Process Section */}
       {files.length > 0 && (
         <div className="mt-6 space-y-3">
           <div className="flex items-center justify-between">
@@ -147,40 +90,16 @@ export default function UploadSection({
             </div>
           </div>
           
-          {/* Process Type Buttons */}
+          {/* Parse Button */}
           <div className="flex gap-2">
-            <Button
-              variant={processType === 'parse' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onProcessTypeChange('parse')}
-              disabled={isProcessing}
+            <Button 
+              onClick={onParseFiles}
+              disabled={processableCount === 0 || isProcessing}
+              className="flex-1"
             >
-              <FileText className="w-4 h-4 mr-1" />
-              Parse
+              <FileText className="w-4 h-4 mr-2" />
+              Parse Files ({processableCount})
             </Button>
-            <Button
-              variant={processType === 'extract' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onProcessTypeChange('extract')}
-              disabled={isProcessing}
-            >
-              <Image className="w-4 h-4 mr-1" />
-              Extract
-            </Button>
-            <Button
-              variant={processType === 'convert' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onProcessTypeChange('convert')}
-              disabled={isProcessing}
-            >
-              <Download className="w-4 h-4 mr-1" />
-              Convert
-            </Button>
-          </div>
-          
-          {/* Process Button */}
-          <div className="flex gap-2">
-            {getProcessButton()}
             <Button 
               variant="outline" 
               onClick={onClearAllFiles}
