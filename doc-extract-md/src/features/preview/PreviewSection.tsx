@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { UploadedFile } from '@/types';
 import PDFPreview from '@/components/ui/pdf-preview';
+import { apiClient } from '@/services/api';
 
 interface PreviewSectionProps {
   files: UploadedFile[];
@@ -95,6 +96,19 @@ export default function PreviewSection({
     }));
   };
 
+  // 处理图片路径转换
+  const processImagePath = (src: string) => {
+    // 如果是相对路径（以images/开头），转换为后端API路径
+    if (src.startsWith('images/')) {
+      // 构建完整的图片路径
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
+      // 需要包含完整的目录结构，从最新的output目录开始
+      // 这里我们需要动态获取最新的目录名
+      return `${baseUrl}/api/images/04ad8eaf-8c4b-465b-b7ca-1fdaae5a9a5c/frontend_cv_wangxi_2025/auto/${src}`;
+    }
+    return src;
+  };
+
   return (
     <Card className="p-6 h-full">
       {selectedFile ? (
@@ -153,6 +167,23 @@ export default function PreviewSection({
                             <div className="prose prose-sm max-w-none overflow-auto">
                               <ReactMarkdown 
                                 remarkPlugins={[remarkGfm]}
+                                components={{
+                                  img: ({ src, alt, ...props }) => {
+                                    const processedSrc = processImagePath(typeof src === 'string' ? src : '');
+                                    return (
+                                      <img 
+                                        src={processedSrc} 
+                                        alt={alt} 
+                                        {...props}
+                                        className="max-w-full h-auto"
+                                        onError={(e) => {
+                                          console.error('Image load failed:', processedSrc);
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                      />
+                                    );
+                                  }
+                                }}
                               >
                                 {processContent(file.markdown || '', file.id)}
                               </ReactMarkdown>

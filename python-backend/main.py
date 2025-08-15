@@ -3,7 +3,8 @@
 """
 from fastapi import FastAPI, UploadFile, File, HTTPException, WebSocket, WebSocketDisconnect, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from typing import List
 import uvicorn
 import os
@@ -11,11 +12,12 @@ import json
 
 from app.service import FileProcessingService
 from app.websocket_manager import websocket_manager
+from app.mineru_proxy import mineru_proxy
 
 # 创建FastAPI应用实例
 app = FastAPI(
     title="文档文字提取服务",
-    description="支持TXT和PDF文件的文字内容提取",
+    description="支持TXT和PDF文件的文字内容提取，以及MinerU PDF转Markdown功能",
     version="1.0.0"
 )
 
@@ -38,7 +40,7 @@ async def root():
     return {
         "message": "文档文字提取服务",
         "version": "1.0.0",
-        "description": "支持TXT和PDF文件的文字内容提取"
+        "description": "支持TXT和PDF文件的文字内容提取，以及MinerU PDF转Markdown功能"
     }
 
 
@@ -78,6 +80,102 @@ async def extract_text_from_file(file: UploadFile = File(...), file_id: str = Fo
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"服务器内部错误: {str(e)}")
+
+
+@app.post("/api/mineru/parse-pdf")
+async def parse_pdf_with_mineru(file: UploadFile = File(...)):
+    """
+    使用MinerU API解析PDF文件为Markdown
+    
+    Args:
+        file: 上传的PDF文件
+        
+    Returns:
+        Markdown内容
+    """
+    try:
+        print(f"收到MinerU PDF解析请求: filename={file.filename}")
+        
+        # 调用MinerU代理处理PDF文件
+        result = await mineru_proxy.process_pdf_with_mineru(file)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MinerU处理失败: {str(e)}")
+
+
+@app.get("/api/mineru/health")
+async def check_mineru_health():
+    """
+    检查MinerU API服务状态
+    
+    Returns:
+        MinerU服务健康状态
+    """
+    try:
+        health_status = await mineru_proxy.health_check()
+        return health_status
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"检查MinerU服务状态失败: {str(e)}"
+        }
+
+
+@app.get("/api/output")
+async def get_output_files(file_path: str = None):
+    """
+    获取output目录下的文件
+    
+    Args:
+        file_path: 文件路径，如果为None则返回目录列表
+        
+    Returns:
+        文件或目录信息
+    """
+    try:
+        result = await file_service.get_output_files(file_path)
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"获取output文件失败: {str(e)}"
+        }
+
+
+@app.get("/api/images/{file_path:path}")
+async def get_image_file(file_path: str):
+    """
+    获取output目录下的图片文件
+    
+    Args:
+        file_path: 图片文件路径
+        
+    Returns:
+        图片文件
+    """
+    try:
+        # 构建完整的文件路径
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        full_path = os.path.join(output_dir, file_path)
+        
+        # 安全检查：确保路径在output目录内
+        if not full_path.startswith(os.path.abspath(output_dir)):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        if not os.path.exists(full_path):
+            raise HTTPException(status_code=404, detail="Image file not found")
+        
+        # 返回图片文件
+        return FileResponse(full_path)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to serve image: {str(e)}")
 
 
 @app.websocket("/ws")
@@ -147,7 +245,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=5001,
         reload=True,
         log_level="info"
     )

@@ -116,7 +116,7 @@ export default function Home() {
     setFiles(prev => [...prev, ...newFiles]);
   };
 
-  const handleParseFiles = async () => {
+  const handleParseFiles = async (useMinerU: boolean = false) => {
     // 分离纯文本文件和其他文件
     const textFiles = files.filter(f => 
       f.status === 'uploaded' && 
@@ -211,7 +211,7 @@ export default function Home() {
 
       // 2. 处理其他文件（通过后端）
       if (otherFiles.length > 0) {
-        const result = await FileProcessor.processFiles(files, 'parse');
+        const result = await FileProcessor.processFiles(files, 'parse', { useMinerU });
         
         if (result.success && result.updatedFiles) {
           // 更新文件状态
@@ -267,11 +267,16 @@ export default function Home() {
       <div className="max-w-7xl mx-auto">
         <header className="border-b bg-background">
           <div className="px-6 py-4">
-            <div className="flex items-center gap-3">
-              <FileText className="w-8 h-8 text-primary" />
-              <div>
-                <h1>Document Processor</h1>
-                <p className="text-muted-foreground">Upload documents and process them with various tools</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-8 h-8 text-primary" />
+                <div>
+                  <h1>Document Processor</h1>
+                  <p className="text-muted-foreground">Upload documents and process them with various tools</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                {/* MinerU功能已集成到主页面 */}
               </div>
             </div>
           </div>

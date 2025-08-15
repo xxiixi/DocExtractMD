@@ -6,6 +6,13 @@ export interface ApiConfig {
   endpoints: {
     upload: string;
     parse: string;
+    // MinerU API接口
+    mineruParse: string;
+    // 后端代理的MinerU接口
+    mineruProxy: string;
+    mineruHealth: string;
+    // 后端output文件接口
+    outputFiles: string;
     // 添加更多接口
     extract?: string;
     convert?: string;
@@ -14,12 +21,19 @@ export interface ApiConfig {
 
 // 默认配置
 export const defaultApiConfig: ApiConfig = {
-  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+  baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001',
   timeout: 30000,
   retries: 3,
   endpoints: {
     upload: '/api/extract-text',
     parse: '/api/extract-text',
+    // MinerU API接口（直接调用）
+    mineruParse: '/file_parse',
+    // 后端代理的MinerU接口
+    mineruProxy: '/api/mineru/parse-pdf',
+    mineruHealth: '/api/mineru/health',
+    // 后端output文件接口
+    outputFiles: '/api/output',
     extract: '/api/extract-text',
     convert: '/api/extract-text',
   },
@@ -46,6 +60,28 @@ export interface ParseResponse {
   extracted_text: string;
   text_length: number;
   status: string;
+  error_message?: string;
+}
+
+// MinerU API响应类型
+export interface MinerUParseResponse {
+  results: {
+    [fileName: string]: {
+      md_content: string;
+      status: string;
+      error_message?: string;
+    };
+  };
+  status: string;
+  message?: string;
+}
+
+// 后端代理的MinerU响应类型
+export interface MinerUProxyResponse {
+  filename: string;
+  md_content: string;
+  status: string;
+  source: string;
   error_message?: string;
 }
 
@@ -165,8 +201,138 @@ export class ApiClient {
     }
   }
 
+  // MinerU API直接调用（可能遇到跨域问题）
+  async parseFileWithMinerU(file: File): Promise<ApiResponse<MinerUParseResponse>> {
+    const formData = new FormData();
+    formData.append('files', file);
+    formData.append('return_md', 'true');
+    formData.append('lang_list', 'ch');
+    formData.append('backend', 'pipeline');
+    formData.append('parse_method', 'auto');
+    formData.append('formula_enable', 'true');
+    formData.append('table_enable', 'true');
+
+    const url = this.getFullUrl(this.config.endpoints.mineruParse);
+    console.log('Sending MinerU request to:', url);
+    console.log('File info:', { name: file.name, type: file.type, size: file.size });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('MinerU Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('MinerU Response error:', errorText);
+        throw new Error(`MinerU API failed: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('MinerU Response data:', data);
+      
+      return { success: true, data };
+    } catch (error) {
+      console.error('MinerU Request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'MinerU parse failed',
+      };
+    }
+  }
+
+  // 通过后端代理调用MinerU API（推荐，解决跨域问题）
+  async parseFileWithMinerUProxy(file: File): Promise<ApiResponse<MinerUProxyResponse>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const url = this.getFullUrl(this.config.endpoints.mineruProxy);
+    console.log('Sending MinerU proxy request to:', url);
+    console.log('File info:', { name: file.name, type: file.type, size: file.size });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('MinerU Proxy Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('MinerU Proxy Response error:', errorData);
+        throw new Error(errorData.detail || `MinerU proxy failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('MinerU Proxy Response data:', data);
+      
+      if (data.success && data.data) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, error: data.detail || 'MinerU proxy failed' };
+      }
+    } catch (error) {
+      console.error('MinerU Proxy Request error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'MinerU proxy failed',
+      };
+    }
+  }
+
+  // 检查MinerU服务健康状态
+  async checkMinerUHealth(): Promise<ApiResponse<any>> {
+    const url = this.getFullUrl(this.config.endpoints.mineruHealth);
+    console.log('Checking MinerU health at:', url);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Health check failed',
+      };
+    }
+  }
+
+  // 获取output目录下的文件
+  async getOutputFile(filePath?: string): Promise<ApiResponse<any>> {
+    const url = this.getFullUrl(this.config.endpoints.outputFiles) + (filePath ? `?path=${encodeURIComponent(filePath)}` : '');
+    console.log('Getting output file at:', url);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get output file: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get output file',
+      };
+    }
+  }
+
   // 提取内容（预留接口）
-  async extractContent(fileName: string, options?: any): Promise<ApiResponse<any>> {
+  async extractContent(fileName: string, options?: unknown): Promise<ApiResponse<unknown>> {
     if (!this.config.endpoints.extract) {
       return { success: false, error: 'Extract endpoint not configured' };
     }
@@ -178,7 +344,7 @@ export class ApiClient {
   }
 
   // 转换格式（预留接口）
-  async convertFormat(fileName: string, targetFormat: string): Promise<ApiResponse<any>> {
+  async convertFormat(fileName: string, targetFormat: string): Promise<ApiResponse<unknown>> {
     if (!this.config.endpoints.convert) {
       return { success: false, error: 'Convert endpoint not configured' };
     }

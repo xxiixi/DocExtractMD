@@ -1,149 +1,130 @@
 """
-业务逻辑层 - 协调文件处理流程，选择解析策略
+业务逻辑层 - 文件处理服务
 """
-from fastapi import UploadFile
-from .parsers import get_parser, get_supported_extensions
-from .websocket_manager import websocket_manager
-import logging
+import os
+import uuid
 import asyncio
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any, List
+from fastapi import UploadFile, HTTPException
+import aiofiles
+from .parsers import TxtParser, PdfParser
+from .websocket_manager import websocket_manager
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 class FileProcessingService:
     """文件处理服务类"""
     
     def __init__(self):
-        self.supported_extensions = get_supported_extensions()
-        self.max_file_size = 50 * 1024 * 1024  # 50MB
+        self.parsers = {
+            'text': TxtParser(),
+            'pdf': PdfParser(),
+        }
+        self.upload_dir = 'uploads'
+        
+        # 确保上传目录存在
+        if not os.path.exists(self.upload_dir):
+            os.makedirs(self.upload_dir)
     
-    async def process_file(self, file: UploadFile, file_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_supported_file_types(self) -> Dict[str, Any]:
+        """获取支持的文件类型信息"""
+        return {
+            "supported_types": {
+                "pdf": [".pdf"],
+                "image": [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff"],
+                "document": [".doc", ".docx"]
+            },
+            "max_file_size": "10MB",
+            "description": "支持文本、PDF、图片和文档文件的文字提取"
+        }
+    
+    def _get_file_type(self, filename: str) -> str:
+        """根据文件名判断文件类型"""
+        ext = os.path.splitext(filename.lower())[1]
+        
+        if ext == '.pdf':
+            return 'pdf'
+        elif ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff']:
+            return 'image'
+        elif ext in ['.doc', '.docx']:
+            return 'document'
+        else:
+            return 'document' 
+    
+    async def process_file(self, file: UploadFile, file_id: str = None) -> Dict[str, Any]:
         """
-        处理单个文件，提取文字内容
+        处理单个文件
         
         Args:
-            file: 上传的文件对象
+            file: 上传的文件
             file_id: 文件ID，用于进度更新
             
         Returns:
-            包含处理结果的字典
+            处理结果
         """
         try:
             logger.info(f"开始处理文件: {file.filename}, file_id: {file_id}")
             
-            # 1. 验证文件
-            await self._send_progress(file_id, 5, "验证文件格式")
-            self._validate_file(file)
+            # 生成文件ID
+            if not file_id:
+                file_id = str(uuid.uuid4())
             
-            # 2. 获取文件扩展名
-            await self._send_progress(file_id, 10, "分析文件类型")
-            file_ext = self._get_file_extension(file.filename)
+            # 获取文件类型
+            file_type = self._get_file_type(file.filename)
+            logger.info(f"文件类型: {file_type}")
             
-            # 3. 获取对应的解析器
-            await self._send_progress(file_id, 15, "准备解析器")
-            parser = get_parser(file_ext)
+            # 发送进度更新
+            await self._send_progress_update(file_id, 10, f"开始处理{file_type}文件")
+            
+            # 保存文件
+            file_path = os.path.join(self.upload_dir, f"{file_id}_{file.filename}")
+            async with aiofiles.open(file_path, 'wb') as f:
+                content = await file.read()
+                await f.write(content)
+            
+            await self._send_progress_update(file_id, 30, "文件保存完成")
+            
+            # 根据文件类型选择解析器
+            parser = self.parsers.get(file_type)
             if not parser:
-                raise ValueError(f"不支持的文件类型: {file_ext}")
+                raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_type}")
             
-            # 4. 读取文件内容
-            await self._send_progress(file_id, 20, "读取文件内容")
-            file_content = await file.read()
+            await self._send_progress_update(file_id, 50, f"使用{file_type}解析器处理")
             
-            # 5. 提取文字内容 - 根据文件类型细分进度
-            await self._send_progress(file_id, 25, "开始提取文字内容")
+            # 解析文件
+            extracted_text = parser.extract_text(content)
+            result = {"text": extracted_text, "metadata": {}}
             
-            # 根据文件类型提供不同的进度更新
-            if file_ext.lower() in ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']:
-                # 图片文件 - OCR处理
-                await self._send_progress(file_id, 30, "图片预处理")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 40, "OCR文字识别中...")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 60, "优化识别结果")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 80, "完成OCR识别")
-            elif file_ext.lower() in ['pdf']:
-                # PDF文件 - 分页处理
-                await self._send_progress(file_id, 30, "解析PDF结构")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 45, "提取页面内容")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 65, "处理图片页面")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 80, "完成PDF解析")
-            elif file_ext.lower() in ['docx']:
-                # DOCX文件 - 段落处理
-                await self._send_progress(file_id, 30, "解析文档结构")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 50, "提取段落内容")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 70, "处理格式信息")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 80, "完成文档解析")
-            elif file_ext.lower() in ['doc']:
-                # DOC文件 - 使用PyMuPDF
-                await self._send_progress(file_id, 30, "解析DOC格式")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 50, "提取页面内容")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 70, "处理文档元素")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 80, "完成DOC解析")
-            else:
-                # TXT文件 - 简单处理
-                await self._send_progress(file_id, 40, "解码文本内容")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 60, "清理文本格式")
-                await asyncio.sleep(0.1)
-                await self._send_progress(file_id, 80, "完成文本处理")
+            await self._send_progress_update(file_id, 90, "解析完成")
             
-            # 6. 执行实际的文字提取
-            await self._send_progress(file_id, 85, "执行文字提取")
-            extracted_text = parser.extract_text(file_content)
+            # 清理临时文件
+            try:
+                os.remove(file_path)
+            except:
+                pass
             
-            # 7. 后处理
-            await self._send_progress(file_id, 90, "后处理文本内容")
-            await asyncio.sleep(0.1)
+            await self._send_progress_update(file_id, 100, "处理完成")
             
-            # 8. 完成处理
-            await self._send_progress(file_id, 95, "处理完成")
-            await asyncio.sleep(0.1)
-            
-            # 9. 记录处理日志
-            logger.info(f"成功处理文件: {file.filename}, 大小: {len(file_content)} bytes")
-            
-            result = {
-                "filename": file.filename,
-                "file_size": len(file_content),
-                "file_type": file_ext,
-                "extracted_text": extracted_text,
-                "text_length": len(extracted_text),
-                "status": "success"
-            }
-            
-            # 发送完成更新
-            if file_id:
-                await websocket_manager.send_completion_update(file_id, result)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"处理文件 {file.filename} 失败: {str(e)}")
-            
-            # 发送错误更新
-            if file_id:
-                await websocket_manager.send_error_update(file_id, str(e))
+            # 发送完成通知
+            await self._send_completion_update(file_id, result)
             
             return {
+                "status": "success",
                 "filename": file.filename,
-                "status": "error",
-                "error_message": str(e)
+                "file_size": len(content),
+                "file_type": file_type,
+                "extracted_text": result.get("text", ""),
+                "text_length": len(result.get("text", "")),
+                "metadata": result.get("metadata", {})
             }
+            
+        except Exception as e:
+            logger.error(f"处理文件失败: {str(e)}")
+            await self._send_error_update(file_id, str(e))
+            raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
     
-    async def process_multiple_files(self, files: list[UploadFile]) -> Dict[str, Any]:
+    async def process_multiple_files(self, files: List[UploadFile]) -> Dict[str, Any]:
         """
         处理多个文件
         
@@ -151,72 +132,162 @@ class FileProcessingService:
             files: 文件列表
             
         Returns:
-            包含所有文件处理结果的字典
+            所有文件的处理结果
         """
         results = []
-        total_files = len(files)
-        successful_files = 0
         
-        for file in files:
-            result = await self.process_file(file)
-            results.append(result)
-            
-            if result["status"] == "success":
-                successful_files += 1
+        for i, file in enumerate(files):
+            try:
+                result = await self.process_file(file)
+                results.append(result)
+            except Exception as e:
+                results.append({
+                    "status": "error",
+                    "filename": file.filename,
+                    "error_message": str(e)
+                })
         
         return {
-            "total_files": total_files,
-            "successful_files": successful_files,
-            "failed_files": total_files - successful_files,
+            "total_files": len(files),
+            "successful_files": len([r for r in results if r["status"] == "success"]),
+            "failed_files": len([r for r in results if r["status"] == "error"]),
             "results": results
         }
     
-    def _validate_file(self, file: UploadFile) -> None:
-        """
-        验证文件的有效性
-        
-        Args:
-            file: 上传的文件对象
-            
-        Raises:
-            ValueError: 文件验证失败时抛出异常
-        """
-        if not file.filename:
-            raise ValueError("文件名不能为空")
-        
-        file_ext = self._get_file_extension(file.filename)
-        if file_ext not in self.supported_extensions:
-            raise ValueError(f"不支持的文件类型: {file_ext}。支持的类型: {', '.join(self.supported_extensions)}")
-    
-    def _get_file_extension(self, filename: str) -> str:
-        """
-        获取文件扩展名
-        
-        Args:
-            filename: 文件名
-            
-        Returns:
-            文件扩展名（小写，不包含点号）
-        """
-        if '.' not in filename:
-            raise ValueError("文件没有扩展名")
-        
-        return filename.split('.')[-1].lower()
-    
-    async def _send_progress(self, file_id: Optional[str], progress: int, step: str):
+    async def _send_progress_update(self, file_id: str, progress: int, step: str):
         """发送进度更新"""
-        if file_id:
-            await websocket_manager.send_progress_update(file_id, progress, step)
+        try:
+            await websocket_manager.broadcast({
+                "type": "progress_update",
+                "file_id": file_id,
+                "progress": progress,
+                "step": step
+            })
+        except Exception as e:
+            logger.error(f"发送进度更新失败: {str(e)}")
     
-    def get_supported_file_types(self) -> Dict[str, Any]:
+    async def _send_completion_update(self, file_id: str, result: Dict[str, Any]):
+        """发送完成通知"""
+        try:
+            await websocket_manager.broadcast({
+                "type": "completion_update",
+                "file_id": file_id,
+                "result": result
+            })
+        except Exception as e:
+            logger.error(f"发送完成通知失败: {str(e)}")
+    
+    async def _send_error_update(self, file_id: str, error: str):
+        """发送错误通知"""
+        try:
+            await websocket_manager.broadcast({
+                "type": "error_update",
+                "file_id": file_id,
+                "error": error
+            })
+        except Exception as e:
+            logger.error(f"发送错误通知失败: {str(e)}")
+
+    async def get_output_files(self, file_path: str = None) -> Dict[str, Any]:
         """
-        获取支持的文件类型信息
+        获取output目录下的文件
         
+        Args:
+            file_path: 文件路径，如果为None则返回目录列表
+            
         Returns:
-            支持的文件类型信息
+            文件或目录信息
         """
-        return {
-            "supported_extensions": self.supported_extensions,
-            "max_file_size_mb": self.max_file_size // (1024 * 1024),
-            "description": "支持TXT和PDF文件的文字提取"
-        }
+        try:
+            output_dir = os.path.join(os.path.dirname(__file__), '..', 'output')
+            
+            if not os.path.exists(output_dir):
+                return {
+                    "success": False,
+                    "error": "Output directory not found"
+                }
+            
+            # 如果没有指定文件路径，返回目录列表
+            if not file_path:
+                directories = []
+                for item in os.listdir(output_dir):
+                    item_path = os.path.join(output_dir, item)
+                    if os.path.isdir(item_path):
+                        directories.append({
+                            "name": item,
+                            "path": item,
+                            "type": "directory",
+                            "modified": os.path.getmtime(item_path)
+                        })
+                
+                # 按修改时间排序
+                directories.sort(key=lambda x: x["modified"], reverse=True)
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "type": "directory_list",
+                        "items": directories
+                    }
+                }
+            
+            # 如果指定了文件路径，返回文件内容
+            full_path = os.path.join(output_dir, file_path)
+            
+            # 安全检查：确保路径在output目录内
+            if not full_path.startswith(os.path.abspath(output_dir)):
+                return {
+                    "success": False,
+                    "error": "Invalid file path"
+                }
+            
+            if not os.path.exists(full_path):
+                return {
+                    "success": False,
+                    "error": "File not found"
+                }
+            
+            stats = os.stat(full_path)
+            
+            if os.path.isdir(full_path):
+                # 如果是目录，返回目录内容
+                items = []
+                for item in os.listdir(full_path):
+                    item_path = os.path.join(full_path, item)
+                    items.append({
+                        "name": item,
+                        "path": os.path.join(file_path, item),
+                        "type": "directory" if os.path.isdir(item_path) else "file",
+                        "modified": os.path.getmtime(item_path)
+                    })
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "type": "directory_content",
+                        "path": file_path,
+                        "items": items
+                    }
+                }
+            else:
+                # 如果是文件，返回文件内容
+                async with aiofiles.open(full_path, 'r', encoding='utf-8') as f:
+                    content = await f.read()
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "type": "file_content",
+                        "path": file_path,
+                        "content": content,
+                        "size": stats.st_size,
+                        "modified": stats.st_mtime
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"获取output文件失败: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Internal server error: {str(e)}"
+            }

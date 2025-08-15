@@ -94,4 +94,6 @@ export interface ProcessOptions {
     quality?: number;
     compression?: boolean;
   };
+  // MinerU处理选项
+  useMinerU?: boolean;
 }
