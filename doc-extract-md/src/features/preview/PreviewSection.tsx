@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { UploadedFile } from '@/types';
+import PDFPreview from '@/components/ui/pdf-preview';
 
 interface PreviewSectionProps {
   files: UploadedFile[];
@@ -113,13 +114,24 @@ export default function PreviewSection({
               </div>
 
               {file.status === 'completed' && (file.markdown || file.content || file.type === 'text') ? (
-                <Tabs defaultValue="preview" className="flex-1 flex flex-col min-h-0">
-                  <TabsList className="grid w-full grid-cols-2">
+                <Tabs defaultValue={file.type === 'pdf' ? 'pdf' : 'preview'} className="flex-1 flex flex-col min-h-0">
+                  <TabsList className={`grid w-full ${file.type === 'pdf' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    {file.type === 'pdf' && (
+                      <TabsTrigger value="pdf">PDF Preview</TabsTrigger>
+                    )}
                     <TabsTrigger value="preview">Markdown Preview</TabsTrigger>
                     <TabsTrigger value="raw">
                       {file.type === 'text' ? 'Raw Text' : 'Raw Markdown'}
                     </TabsTrigger>
                   </TabsList>
+                  
+                  {file.type === 'pdf' && (
+                    <TabsContent value="pdf" className="flex-1 min-h-0">
+                      {file.file && (
+                        <PDFPreview file={file.file} className="h-full" />
+                      )}
+                    </TabsContent>
+                  )}
                   
                   <TabsContent value="preview" className="flex-1 min-h-0">
                     <div 

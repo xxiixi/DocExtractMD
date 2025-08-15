@@ -1,6 +1,5 @@
 import { UploadedFile, FileType, ProcessType, ProcessOptions } from '@/types';
 import { apiClient } from './api';
-import { websocketClient, ProgressUpdate } from './websocket';
 
 // 文件处理服务类
 export class FileProcessor {
