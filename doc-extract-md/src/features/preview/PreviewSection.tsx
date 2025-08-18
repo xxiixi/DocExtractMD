@@ -97,15 +97,43 @@ export default function PreviewSection({
   };
 
   // 处理图片路径转换
-  const processImagePath = (src: string) => {
-    // 如果是相对路径（以images/开头），转换为后端API路径
+  const processImagePath = (src: string, fileId?: string) => {
+    // 如果是相对路径（以images/开头），说明是MinerU生成的图片
     if (src.startsWith('images/')) {
-      // 构建完整的图片路径
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001';
-      // 需要包含完整的目录结构，从最新的output目录开始
-      // 这里我们需要动态获取最新的目录名
-      return `${baseUrl}/api/images/04ad8eaf-8c4b-465b-b7ca-1fdaae5a9a5c/frontend_cv_wangxi_2025/auto/${src}`;
+      console.warn('MinerU生成的图片路径:', src);
+      
+      // 从文件对象中获取图片数据
+      if (fileId) {
+        const file = files.find(f => f.id === fileId);
+        console.log('文件对象:', file);
+        console.log('文件图片数据:', file?.images);
+        console.log('图片键名:', Object.keys(file?.images || {}));
+        
+        if (file?.images && file.images[src]) {
+          console.log('找到图片数据:', src);
+          return file.images[src]; // 返回base64数据
+        } else {
+          console.log('未找到图片数据，尝试匹配键名...');
+          // 尝试匹配不同的键名格式
+          const imageKeys = Object.keys(file?.images || {});
+          for (const key of imageKeys) {
+            if (key.includes(src.split('/').pop() || '')) {
+              console.log('找到匹配的图片键:', key);
+              return file?.images?.[key] || '';
+            }
+          }
+        }
+      }
+      
+      // 如果没有找到图片数据，返回空字符串（图片将不显示）
+      return '';
     }
+    
+    // 如果是完整的URL，直接使用
+    if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+      return src;
+    }
+    
     return src;
   };
 
@@ -169,18 +197,32 @@ export default function PreviewSection({
                                 remarkPlugins={[remarkGfm]}
                                 components={{
                                   img: ({ src, alt, ...props }) => {
-                                    const processedSrc = processImagePath(typeof src === 'string' ? src : '');
+                                    const srcString = typeof src === 'string' ? src : '';
+                                    const processedSrc = processImagePath(srcString, file.id);
+                                    
+                                    // 如果没有有效的图片源，不渲染图片
+                                    if (!processedSrc) {
+                                      return null;
+                                    }
+                                    
                                     return (
-                                      <img 
-                                        src={processedSrc} 
-                                        alt={alt} 
-                                        {...props}
-                                        className="max-w-full h-auto"
-                                        onError={(e) => {
-                                          console.error('Image load failed:', processedSrc);
-                                          e.currentTarget.style.display = 'none';
-                                        }}
-                                      />
+                                      <span className="block my-4">
+                                        <img 
+                                          src={processedSrc} 
+                                          alt={alt || 'MinerU生成的图片'} 
+                                          {...props}
+                                          className="max-w-full h-auto border rounded-lg shadow-sm"
+                                          onError={(e) => {
+                                            console.error('图片加载失败:', processedSrc);
+                                            e.currentTarget.style.display = 'none'; // 隐藏图片
+                                          }}
+                                        />
+                                        {srcString && srcString.startsWith('images/') && (
+                                          <span className="block text-xs text-muted-foreground mt-2 text-center">
+                                            MinerU生成的图片: {srcString}
+                                          </span>
+                                        )}
+                                      </span>
                                     );
                                   }
                                 }}

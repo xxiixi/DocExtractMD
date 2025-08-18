@@ -63,6 +63,7 @@ export const MINERU_CONFIG = {
     parse_method: 'auto',
     formula_enable: true,
     table_enable: true,
+    return_images: true,  // 启用图片返回
   },
 } as const;
 

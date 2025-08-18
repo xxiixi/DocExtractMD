@@ -20,6 +20,7 @@ export interface UploadedFile {
   error?: string;
   file?: File; // 实际的文件对象
   currentStep?: string; // 当前处理步骤
+  images?: Record<string, string>; // MinerU生成的图片数据 (base64格式)
   metadata?: {
     pages?: number;
     dimensions?: { width: number; height: number };

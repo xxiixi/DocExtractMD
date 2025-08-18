@@ -73,34 +73,23 @@ export class FileProcessor {
   }
 
   // 使用MinerU API解析文件（直接调用）
-  static async parseFileWithMinerU(file: File): Promise<{ success: boolean; markdown?: string; error?: string }> {
-    console.log('使用MinerU解析文件:', file.name, file.type, file.size);
-    
+  static async parseFileWithMinerU(file: File): Promise<{ success: boolean; markdown?: string; error?: string; images?: Record<string, string> }> {
     try {
       const response = await apiClient.parseFileWithMinerU(file);
-      console.log('MinerU API响应:', response);
-      
       if (response.success && response.data) {
         const result = response.data;
-        console.log('MinerU解析结果:', result);
-        console.log('MinerU结果类型:', typeof result);
-        console.log('MinerU结果键:', Object.keys(result));
         
         // 从MinerU响应中提取Markdown内容
         if (result.results && Object.keys(result.results).length > 0) {
-          console.log('MinerU results键:', Object.keys(result.results));
           const filename = Object.keys(result.results)[0];
-          console.log('处理文件名:', filename);
           const fileResult = result.results[filename];
-          console.log('文件结果:', fileResult);
-          console.log('文件结果键:', Object.keys(fileResult));
           
-          // MinerU API直接返回md_content，没有status字段
-          if (fileResult.md_content) {
-            console.log('成功获取Markdown内容，长度:', fileResult.md_content.length);
+          if (fileResult.md_content) {            
+            const images = fileResult.images || {};
             return {
               success: true,
-              markdown: fileResult.md_content
+              markdown: fileResult.md_content,
+              images: images
             };
           } else {
             console.error('文件结果中没有md_content:', fileResult);
@@ -138,7 +127,6 @@ export class FileProcessor {
     processType: ProcessType = 'parse',
     options?: ProcessOptions
   ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
-    console.log('开始文件处理...', { processType, filesCount: files.length });
     
     // 只处理PDF文件
     const processableFiles = files.filter(f => 
@@ -167,14 +155,12 @@ export class FileProcessor {
         if (!processResult.success) {
           throw new Error(processResult.error || '解析失败');
         }
-
-        // 完成处理
-        console.log('更新文件状态为完成，内容长度:', processResult.markdown?.length);
         
         files = this.updateFileStatus(files, file.id, { 
           status: 'completed', 
           progress: 100,
-          markdown: processResult.markdown
+          markdown: processResult.markdown,
+          images: processResult.images  // 保存图片数据
         });
         
         files = this.addProcessStep(files, file.id, { 
@@ -182,13 +168,7 @@ export class FileProcessor {
           status: 'completed',
           result: processResult
         });
-        
-        console.log('文件处理完成:', {
-          fileId: file.id,
-          fileName: file.name,
-          status: 'completed',
-          contentLength: processResult.markdown?.length
-        });
+      
 
       } catch (error) {
         console.error(`处理文件 ${file.name} 时出错:`, error);

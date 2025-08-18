@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   ChevronLeft, 
@@ -40,7 +39,10 @@ export default function PDFPreview({ file, className }: PDFPreviewProps) {
       try {
         // 这里可以配置 PDF.js 的 CDN 路径
         const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        
+        // 修复CORS问题：禁用worker以避免CDN问题
+        pdfjs.GlobalWorkerOptions.workerSrc = '';
+        
         setPdfjsLib(pdfjs);
       } catch (err) {
         console.error('Failed to load PDF.js:', err);

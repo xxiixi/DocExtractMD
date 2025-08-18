@@ -41,7 +41,7 @@ export interface MinerUParseResponse {
       model_output?: string;
       content_list?: string;
       images?: {
-        [imageName: string]: string;
+        [imageName: string]: string;  // base64格式的图片数据
       };
     };
   };
