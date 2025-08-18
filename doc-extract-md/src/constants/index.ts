@@ -44,3 +44,36 @@ export const FILE_STATUS = {
   COMPLETED: 'completed',
   FAILED: 'failed',
 } as const;
+
+// MinerU API配置
+export const MINERU_CONFIG = {
+  // MinerU API服务地址
+  API_URL: process.env.NEXT_PUBLIC_MINERU_API_URL || 'http://localhost:8000',
+  
+  // MinerU API端点
+  ENDPOINTS: {
+    PARSE: '/file_parse',
+  },
+  
+  // 默认解析参数
+  DEFAULT_PARAMS: {
+    return_md: true,
+    lang_list: 'ch',
+    backend: 'pipeline',
+    parse_method: 'auto',
+    formula_enable: true,
+    table_enable: true,
+  },
+} as const;
+
+// 应用配置
+export const APP_CONFIG = {
+  // 支持的文件类型
+  SUPPORTED_FILE_TYPES: ['.pdf', 'application/pdf'],
+  
+  // 最大文件大小 (MB)
+  MAX_FILE_SIZE: 50,
+  
+  // 最大文件数量
+  MAX_FILES: 10,
+} as const;
