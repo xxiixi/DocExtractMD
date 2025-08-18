@@ -36,9 +36,9 @@ export default function FileListSection({
   const getStatusIcon = (status: UploadedFile['status']) => {
     switch (status) {
       case 'uploaded':
-        return <FileText className="w-4 h-4 text-muted-foreground" />;
+        return <FileText className="w-4 h-4 text-gray-500" />;
       case 'processing':
-        return <Clock className="w-4 h-4 text-blue-500" />;
+        return <Clock className="w-4 h-4 text-purple-500" />;
       case 'completed':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'error':
@@ -46,7 +46,7 @@ export default function FileListSection({
       case 'extracting':
         return <FileText className="w-4 h-4 text-orange-500" />;
       case 'converting':
-        return <FileText className="w-4 h-4 text-purple-500" />;
+        return <FileText className="w-4 h-4 text-indigo-500" />;
     }
   };
 
@@ -58,13 +58,13 @@ export default function FileListSection({
   };
 
   const getStatusBadge = (status: UploadedFile['status']) => {
-    const variants: Record<UploadedFile['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      uploaded: 'outline',
-      processing: 'secondary',
-      completed: 'default',
+    const variants: Record<UploadedFile['status'], 'ready' | 'processing' | 'success' | 'destructive' | 'extracting' | 'converting'> = {
+      uploaded: 'ready',
+      processing: 'processing',
+      completed: 'success',
       error: 'destructive',
-      extracting: 'secondary',
-      converting: 'secondary'
+      extracting: 'extracting',
+      converting: 'converting'
     };
 
     const labels = {
@@ -94,14 +94,16 @@ export default function FileListSection({
       pdf: 'default',
       image: 'secondary',
       document: 'outline',
-      text: 'outline'
+      text: 'outline',
+      markdown: 'outline'
     } as const;
 
     const labels = {
       pdf: 'PDF',
       image: 'Image',
       document: 'Doc',
-      text: 'Text'
+      text: 'Text',
+      markdown: 'MD'
     };
 
     return (

@@ -38,13 +38,13 @@ export default function PreviewSection({
   };
 
   const getStatusBadge = (status: UploadedFile['status']) => {
-    const variants: Record<UploadedFile['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      uploaded: 'outline',
-      processing: 'secondary',
-      completed: 'default',
+    const variants: Record<UploadedFile['status'], 'ready' | 'processing' | 'success' | 'destructive' | 'extracting' | 'converting'> = {
+      uploaded: 'ready',
+      processing: 'processing',
+      completed: 'success',
       error: 'destructive',
-      extracting: 'secondary',
-      converting: 'secondary'
+      extracting: 'extracting',
+      converting: 'converting'
     };
 
     const labels: Record<UploadedFile['status'], string> = {
