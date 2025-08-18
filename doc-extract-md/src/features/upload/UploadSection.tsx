@@ -82,13 +82,13 @@ export default function UploadSection({
       </div>
 
       {/* MinerU处理说明 */}
-      <div className="mt-6 p-4 border rounded-lg bg-blue-50">
+      <div className="mt-6 p-4 border rounded-sm bg-blue-50">
         <div className="flex items-center gap-2 mb-2">
           <FileText className="w-4 h-4 text-blue-600" />
           <span className="text-sm font-medium text-blue-800">MinerU PDF解析</span>
         </div>
         <p className="text-xs text-blue-600">
-          使用MinerU AI模型进行PDF解析，提供优秀的表格、公式和布局识别能力
+          使用MinerU AI模型进行PDF解析
         </p>
       </div>
 
