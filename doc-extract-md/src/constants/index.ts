@@ -8,13 +8,6 @@ export const API_ENDPOINTS = {
   PARSE: '/api/parse',
 } as const;
 
-// WebSocket相关常量
-export const WEBSOCKET_CONFIG = {
-  URL: process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8000/ws',
-  RECONNECT_INTERVAL: 3000,
-  MAX_RECONNECT_ATTEMPTS: 5,
-} as const;
-
 // 文件相关常量
 export const FILE_CONFIG = {
   MAX_SIZE: 50 * 1024 * 1024, // 50MB
