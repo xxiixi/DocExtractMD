@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { UploadedFile } from '@/types';
 import PDFPreview from '@/components/ui/pdf-preview';
-import { apiClient } from '@/services/api';
 
 interface PreviewSectionProps {
   files: UploadedFile[];
@@ -105,20 +104,14 @@ export default function PreviewSection({
       // 从文件对象中获取图片数据
       if (fileId) {
         const file = files.find(f => f.id === fileId);
-        console.log('文件对象:', file);
-        console.log('文件图片数据:', file?.images);
-        console.log('图片键名:', Object.keys(file?.images || {}));
         
         if (file?.images && file.images[src]) {
-          console.log('找到图片数据:', src);
           return file.images[src]; // 返回base64数据
         } else {
-          console.log('未找到图片数据，尝试匹配键名...');
           // 尝试匹配不同的键名格式
           const imageKeys = Object.keys(file?.images || {});
           for (const key of imageKeys) {
             if (key.includes(src.split('/').pop() || '')) {
-              console.log('找到匹配的图片键:', key);
               return file?.images?.[key] || '';
             }
           }
