@@ -6,7 +6,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -149,146 +148,180 @@ export default function PreviewSection({
               </div>
 
               {file.status === 'completed' && (file.markdown || file.content || file.type === 'text') ? (
-                <Tabs defaultValue={file.type === 'pdf' ? 'pdf' : 'preview'} className="flex-1 flex flex-col min-h-0">
-                  <TabsList className={`grid w-full ${file.type === 'pdf' ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                    {file.type === 'pdf' && (
-                      <TabsTrigger value="pdf">PDF Preview</TabsTrigger>
-                    )}
-                    <TabsTrigger value="preview">Markdown Preview</TabsTrigger>
-                    <TabsTrigger value="raw">
-                      {file.type === 'text' ? 'Raw Text' : 'Raw Markdown'}
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  {file.type === 'pdf' && (
-                    <TabsContent value="pdf" className="flex-1 min-h-0">
-                      {file.file && (
-                        <PDFPreview file={file.file} className="h-full" />
-                      )}
-                    </TabsContent>
-                  )}
-                  
-                  <TabsContent value="preview" className="flex-1 min-h-0">
-                    <div 
-                      className="border rounded-lg flex flex-col bg-card" 
-                      style={{ 
-                        minHeight: MIN_CONTENT_HEIGHT,
-                        height: '100%'
-                      }}
-                    >
-                      <ScrollArea className="flex-1">
-                        <div className="p-6">
-                          {file.type === 'text' ? (
-                            <div className="prose prose-sm max-w-none">
-                              <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                                {processContent(file.markdown || file.content || '', file.id)}
-                              </pre>
-                            </div>
-                          ) : (
-                            <div className="prose prose-sm max-w-none overflow-auto">
-                              <ReactMarkdown 
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  img: ({ src, alt, ...props }) => {
-                                    const srcString = typeof src === 'string' ? src : '';
-                                    const processedSrc = processImagePath(srcString, file.id);
-                                    
-                                    // 如果没有有效的图片源，不渲染图片
-                                    if (!processedSrc) {
-                                      return null;
+                <div className="flex-1 flex flex-col min-h-0">
+                  {file.type === 'pdf' ? (
+                    // PDF文件：并排显示PDF预览和Markdown预览
+                    <div className="grid grid-cols-2 gap-4 h-full">
+                      {/* PDF Preview */}
+                      <div className="flex flex-col">
+                        <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                        <div className="flex-1 overflow-hidden">
+                          {file.file && (
+                            <PDFPreview file={file.file} className="h-full" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Markdown Preview */}
+                      <div className="flex flex-col">
+                        <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                        <div 
+                          className="border rounded-lg flex flex-col bg-card flex-1" 
+                          style={{ 
+                            minHeight: MIN_CONTENT_HEIGHT
+                          }}
+                        >
+                          <ScrollArea className="flex-1">
+                            <div className="p-6">
+                              <div className="prose prose-sm max-w-none overflow-auto">
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    img: ({ src, alt, ...props }) => {
+                                      const srcString = typeof src === 'string' ? src : '';
+                                      const processedSrc = processImagePath(srcString, file.id);
+                                      
+                                      // 如果没有有效的图片源，不渲染图片
+                                      if (!processedSrc) {
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <span className="block my-4">
+                                          <img 
+                                            src={processedSrc} 
+                                            alt={alt || 'MinerU生成的图片'} 
+                                            {...props}
+                                            className="max-w-full h-auto border rounded-lg shadow-sm"
+                                            onError={(e) => {
+                                              console.error('图片加载失败:', processedSrc);
+                                              e.currentTarget.style.display = 'none'; // 隐藏图片
+                                            }}
+                                          />
+                                          {srcString && srcString.startsWith('images/') && (
+                                            <span className="block text-xs text-muted-foreground mt-2 text-center">
+                                              MinerU生成的图片: {srcString}
+                                            </span>
+                                          )}
+                                        </span>
+                                      );
                                     }
-                                    
-                                    return (
-                                      <span className="block my-4">
-                                        <img 
-                                          src={processedSrc} 
-                                          alt={alt || 'MinerU生成的图片'} 
-                                          {...props}
-                                          className="max-w-full h-auto border rounded-lg shadow-sm"
-                                          onError={(e) => {
-                                            console.error('图片加载失败:', processedSrc);
-                                            e.currentTarget.style.display = 'none'; // 隐藏图片
-                                          }}
-                                        />
-                                        {srcString && srcString.startsWith('images/') && (
-                                          <span className="block text-xs text-muted-foreground mt-2 text-center">
-                                            MinerU生成的图片: {srcString}
-                                          </span>
-                                        )}
-                                      </span>
-                                    );
-                                  }
-                                }}
+                                  }}
+                                >
+                                  {processContent(file.markdown || '', file.id)}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          </ScrollArea>
+                          {needsTruncation(file.markdown || file.content || '') && (
+                            <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
+                              <Button
+                                variant="outline"
+                                onClick={() => toggleExpanded(file.id)}
+                                className="flex items-center gap-2"
                               >
-                                {processContent(file.markdown || '', file.id)}
-                              </ReactMarkdown>
+                                {expandedContent[file.id] ? (
+                                  <>
+                                    <ChevronUp className="w-4 h-4" />
+                                    收起内容
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-4 h-4" />
+                                    展示更多
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           )}
                         </div>
-                      </ScrollArea>
-                      {needsTruncation(file.markdown || file.content || '') && (
-                        <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            onClick={() => toggleExpanded(file.id)}
-                            className="flex items-center gap-2"
-                          >
-                            {expandedContent[file.id] ? (
-                              <>
-                                <ChevronUp className="w-4 h-4" />
-                                收起内容
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-4 h-4" />
-                                展示更多
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="raw" className="flex-1 min-h-0">
-                    <div 
-                      className="border rounded-lg flex flex-col" 
-                      style={{ 
-                        minHeight: MIN_CONTENT_HEIGHT,
-                        height: '100%'
-                      }}
-                    >
-                      <ScrollArea className="flex-1">
-                        <div className="p-6">
-                          <pre className="bg-muted p-6 rounded-lg overflow-x-auto text-sm font-mono">
-                            <code>{processContent(file.markdown || file.content || '', file.id)}</code>
-                          </pre>
-                        </div>
-                      </ScrollArea>
-                      {needsTruncation(file.markdown || file.content || '') && (
-                        <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            onClick={() => toggleExpanded(file.id)}
-                            className="flex items-center gap-2"
-                          >
-                            {expandedContent[file.id] ? (
-                              <>
-                                <ChevronUp className="w-4 h-4" />
-                                收起内容
-                              </>
+                  ) : (
+                    // 非PDF文件：只显示Markdown预览
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                      <div 
+                        className="border rounded-lg flex flex-col bg-card flex-1" 
+                        style={{ 
+                          minHeight: MIN_CONTENT_HEIGHT
+                        }}
+                      >
+                        <ScrollArea className="flex-1">
+                          <div className="p-6">
+                            {file.type === 'text' ? (
+                              <div className="prose prose-sm max-w-none">
+                                <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">
+                                  {processContent(file.markdown || file.content || '', file.id)}
+                                </pre>
+                              </div>
                             ) : (
-                              <>
-                                <ChevronDown className="w-4 h-4" />
-                                展示更多
-                              </>
+                              <div className="prose prose-sm max-w-none overflow-auto">
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    img: ({ src, alt, ...props }) => {
+                                      const srcString = typeof src === 'string' ? src : '';
+                                      const processedSrc = processImagePath(srcString, file.id);
+                                      
+                                      // 如果没有有效的图片源，不渲染图片
+                                      if (!processedSrc) {
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <span className="block my-4">
+                                          <img 
+                                            src={processedSrc} 
+                                            alt={alt || 'MinerU生成的图片'} 
+                                            {...props}
+                                            className="max-w-full h-auto border rounded-lg shadow-sm"
+                                            onError={(e) => {
+                                              console.error('图片加载失败:', processedSrc);
+                                              e.currentTarget.style.display = 'none'; // 隐藏图片
+                                            }}
+                                          />
+                                          {srcString && srcString.startsWith('images/') && (
+                                            <span className="block text-xs text-muted-foreground mt-2 text-center">
+                                              MinerU生成的图片: {srcString}
+                                            </span>
+                                          )}
+                                        </span>
+                                      );
+                                    }
+                                  }}
+                                >
+                                  {processContent(file.markdown || '', file.id)}
+                                </ReactMarkdown>
+                              </div>
                             )}
-                          </Button>
-                        </div>
-                      )}
+                          </div>
+                        </ScrollArea>
+                        {needsTruncation(file.markdown || file.content || '') && (
+                          <div className="border-t bg-muted/30 p-4 flex justify-center flex-shrink-0">
+                            <Button
+                              variant="outline"
+                              onClick={() => toggleExpanded(file.id)}
+                              className="flex items-center gap-2"
+                            >
+                              {expandedContent[file.id] ? (
+                                <>
+                                  <ChevronUp className="w-4 h-4" />
+                                  收起内容
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-4 h-4" />
+                                  展示更多
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  )}
+                </div>
               ) : file.status === 'error' ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">

@@ -92,7 +92,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto">
+      {/* 设置width为full（浏览器宽度 */}
+      <div className="w-full"> 
         <header className="border-b bg-background">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
@@ -108,7 +109,7 @@ export default function Home() {
         </header>
 
         <div className="px-6 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-8">
             {/* Upload Section */}
             <div className="md:col-span-2 space-y-6">
               <UploadSection
@@ -130,7 +131,7 @@ export default function Home() {
             </div>
 
             {/* Preview Section */}
-            <div className="md:col-span-3">
+            <div className="md:col-span-5">
               <PreviewSection
                 files={files}
                 selectedFile={selectedFile}
