@@ -60,6 +60,29 @@ export const MINERU_CONFIG = {
   },
 } as const;
 
+// Multi-GPU配置
+export const MULTI_GPU_CONFIG = {
+  // Multi-GPU服务器地址
+  SERVER_URL: process.env.NEXT_PUBLIC_MULTI_GPU_URL || 'http://127.0.0.1:8000',
+  
+  // 默认配置
+  DEFAULT_CONFIG: {
+    timeout: 300000, // 5分钟
+    maxConcurrent: 4, // 最大并发数
+    retries: 3,
+  },
+  
+  // 默认解析选项
+  DEFAULT_OPTIONS: {
+    backend: 'pipeline',
+    lang: 'ch',
+    method: 'auto',
+    formula_enable: true,
+    table_enable: true,
+    source: 'huggingface',
+  },
+} as const;
+
 // 应用配置
 export const APP_CONFIG = {
   // 支持的文件类型

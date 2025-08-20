@@ -7,11 +7,20 @@ import UploadSection from '@/features/upload/UploadSection';
 import FileListSection from '@/features/file-list/FileListSection';
 import PreviewSection from '@/features/preview/PreviewSection';
 import { FileProcessor } from '@/services/fileProcessor';
+import { MultiGpuOptions, MultiGpuConfig } from '@/components/ui/multi-gpu-controls';
+import { MULTI_GPU_CONFIG } from '@/constants';
 
 export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Multi-GPU 配置（固定配置）
+  const [multiGpuOptions] = useState<MultiGpuOptions>(MULTI_GPU_CONFIG.DEFAULT_OPTIONS);
+  const [multiGpuConfig] = useState<MultiGpuConfig>({
+    serverUrl: MULTI_GPU_CONFIG.SERVER_URL,
+    ...MULTI_GPU_CONFIG.DEFAULT_CONFIG
+  });
 
   const handleFileUpload = async (uploadedFiles: FileList) => {
     const newFiles: UploadedFile[] = [];
@@ -48,7 +57,14 @@ export default function Home() {
     );
 
     try {
-      const result = await FileProcessor.processFiles(files, 'parse');
+      // 直接使用Multi-GPU处理
+      const processOptions = {
+        useMultiGpu: true,
+        multiGpuOptions: multiGpuOptions,
+        multiGpuConfig: multiGpuConfig
+      };
+
+      const result = await FileProcessor.processFiles(files, 'parse', processOptions);
       
       if (result.success && result.updatedFiles) {
         console.log('文件处理完成，更新文件状态');
@@ -119,6 +135,20 @@ export default function Home() {
                 onClearAllFiles={clearAllFiles}
                 isProcessing={isProcessing}
               />
+
+              {/* Multi-GPU 状态显示 */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-blue-800">Multi-GPU 模式已启用</span>
+                </div>
+                <div className="mt-2 text-xs text-blue-600">
+                  <div>服务器: {multiGpuConfig.serverUrl}</div>
+                  <div>并发数: {multiGpuConfig.maxConcurrent}</div>
+                  <div>后端: {multiGpuOptions.backend}</div>
+                  <div>可处理文件: {files.filter(f => f.status === 'uploaded' && f.type === 'pdf').length} 个</div>
+                </div>
+              </div>
 
               {/* File List */}
               <FileListSection

@@ -1,5 +1,6 @@
 import { UploadedFile, FileType, ProcessType, ProcessOptions } from '@/types';
 import { apiClient } from './api';
+import { multiGpuClient, MultiGpuOptions } from './multiGpuClient';
 
 // 文件处理服务类
 export class FileProcessor {
@@ -121,11 +122,15 @@ export class FileProcessor {
     }
   }
 
-  // 批量处理文件（只支持MinerU解析）
+  // 批量处理文件（仅支持Multi-GPU解析）
   static async processFiles(
     files: UploadedFile[],
     processType: ProcessType = 'parse',
-    options?: ProcessOptions
+    options?: ProcessOptions & { 
+      useMultiGpu?: boolean; 
+      multiGpuOptions?: Partial<MultiGpuOptions>;
+      multiGpuConfig?: { serverUrl: string; maxConcurrent: number; timeout: number; retries: number };
+    }
   ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
     
     // 只处理PDF文件
@@ -139,6 +144,131 @@ export class FileProcessor {
 
     console.log('可处理的文件:', processableFiles.map(f => ({ name: f.name, type: f.type, status: f.status })));
 
+    // 强制使用Multi-GPU模式
+    const multiGpuOptions = options?.multiGpuOptions || {};
+    const multiGpuConfig = options?.multiGpuConfig;
+
+    // 更新Multi-GPU客户端配置
+    if (multiGpuConfig) {
+      multiGpuClient.updateConfig(multiGpuConfig);
+    }
+
+    // 始终使用Multi-GPU并发处理
+    return await this.processFilesWithMultiGpu(files, processableFiles, processType, multiGpuOptions);
+  }
+
+  // 使用Multi-GPU并发处理文件
+  private static async processFilesWithMultiGpu(
+    files: UploadedFile[],
+    processableFiles: UploadedFile[],
+    processType: ProcessType,
+    multiGpuOptions: Partial<MultiGpuOptions>
+  ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
+    
+    try {
+      // 将所有文件状态更新为处理中
+      for (const file of processableFiles) {
+        files = this.updateFileStatus(files, file.id, { status: 'processing', progress: 0 });
+        files = this.addProcessStep(files, file.id, { type: processType, status: 'running' });
+      }
+
+      // 使用Multi-GPU客户端处理文件
+      const results = await multiGpuClient.processUploadedFiles(
+        processableFiles,
+        multiGpuOptions,
+        (completed, total, currentFile) => {
+          // 更新进度
+          const progress = Math.round((completed / total) * 100);
+          console.log(`Multi-GPU 处理进度: ${completed}/${total} (${progress}%) - 当前文件: ${currentFile || 'N/A'}`);
+        }
+      );
+
+      // 处理结果
+      for (const file of processableFiles) {
+        const result = results[file.id];
+        
+        if (result && result.success) {
+          // 提取Markdown内容和图片
+          let markdown = '';
+          let images: Record<string, string> = {};
+
+          if (result.results && Object.keys(result.results).length > 0) {
+            const filename = Object.keys(result.results)[0];
+            const fileResult = result.results[filename];
+            
+            if (fileResult.md_content) {
+              markdown = fileResult.md_content;
+            }
+            
+            if (fileResult.images) {
+              images = fileResult.images;
+            }
+          }
+
+          files = this.updateFileStatus(files, file.id, { 
+            status: 'completed', 
+            progress: 100,
+            markdown: markdown,
+            images: images
+          });
+          
+          files = this.addProcessStep(files, file.id, { 
+            type: processType, 
+            status: 'completed',
+            result: { success: true, markdown, images }
+          });
+        } else {
+          const error = result?.error || 'Multi-GPU处理失败';
+          
+          files = this.updateFileStatus(files, file.id, { 
+            status: 'error', 
+            progress: 0,
+            error: error
+          });
+          
+          files = this.addProcessStep(files, file.id, { 
+            type: processType, 
+            status: 'failed',
+            error: error
+          });
+        }
+      }
+
+      return { success: true, updatedFiles: files };
+
+    } catch (error) {
+      console.error('Multi-GPU处理过程中出错:', error);
+      
+      // 将所有处理中的文件标记为错误
+      for (const file of processableFiles) {
+        files = this.updateFileStatus(files, file.id, { 
+          status: 'error', 
+          progress: 0,
+          error: error instanceof Error ? error.message : 'Multi-GPU处理失败'
+        });
+        
+        files = this.addProcessStep(files, file.id, { 
+          type: processType, 
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Multi-GPU处理失败'
+        });
+      }
+
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Multi-GPU处理失败',
+        updatedFiles: files 
+      };
+    }
+  }
+
+  // 传统的串行处理文件
+  private static async processFilesSequentially(
+    files: UploadedFile[],
+    processableFiles: UploadedFile[],
+    processType: ProcessType
+  ): Promise<{ success: boolean; error?: string; updatedFiles?: UploadedFile[] }> {
+    
     for (const file of processableFiles) {
       try {
         // 更新状态为处理中
