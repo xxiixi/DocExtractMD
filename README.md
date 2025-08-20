@@ -15,3 +15,6 @@
 ### Start Frontend
 `cd doc-extract-md`
 `npm run dev`
+
+### Start mineru local
+`python -m mineru.cli.fast_api --host 0.0.0.0 --port 8000`
