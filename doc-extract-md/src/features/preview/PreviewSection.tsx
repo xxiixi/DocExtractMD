@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { UploadedFile } from '@/types';
-import PDFPreview from '@/components/ui/pdf-preview';
+import PDFPreviewSimple from '@/components/ui/pdf-preview-simple';
 
 interface PreviewSectionProps {
   files: UploadedFile[];
@@ -157,7 +157,7 @@ export default function PreviewSection({
                         <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
                         <div className="flex-1 overflow-hidden">
                           {file.file && (
-                            <PDFPreview file={file.file} className="h-full" />
+                            <PDFPreviewSimple file={file.file} className="h-full" />
                           )}
                         </div>
                       </div>
@@ -331,7 +331,7 @@ export default function PreviewSection({
                       <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
                       <div className="flex-1 overflow-hidden">
                         {file.file && (
-                          <PDFPreview file={file.file} className="h-full" />
+                          <PDFPreviewSimple file={file.file} className="h-full" />
                         )}
                       </div>
                     </div>
