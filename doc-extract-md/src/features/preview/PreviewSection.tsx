@@ -322,6 +322,42 @@ export default function PreviewSection({
                     </div>
                   )}
                 </div>
+              ) : file.status === 'uploaded' && file.type === 'pdf' ? (
+                // 文件已上传但未解析：显示PDF预览和准备解析提示
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    {/* PDF Preview */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                      <div className="flex-1 overflow-hidden">
+                        {file.file && (
+                          <PDFPreview file={file.file} className="h-full" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* 准备解析提示 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                      <div 
+                        className="border rounded-lg flex flex-col bg-card flex-1" 
+                        style={{ 
+                          minHeight: MIN_CONTENT_HEIGHT
+                        }}
+                      >
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">准备解析</h3>
+                            <p className="text-muted-foreground">
+                              文件已上传，准备进行解析。点击 &quot;Parse Files&quot; 按钮开始处理。
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : file.status === 'error' ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
@@ -359,13 +395,58 @@ export default function PreviewSection({
           );
         })()
       ) : (
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center">
-            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">选择文件进行预览</h3>
-            <p className="text-muted-foreground">
-              上传文件并点击 &quot;Parse Files&quot; 按钮处理文件内容
-            </p>
+        // 没有选择文件时：显示两栏布局的占位符
+        <div className="h-full flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold">文档预览</h3>
+              <p className="text-muted-foreground">
+                选择文件进行预览
+              </p>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="grid grid-cols-2 gap-4 h-full">
+              {/* PDF Preview 占位符 */}
+              <div className="flex flex-col">
+                <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                <div className="flex-1 overflow-hidden">
+                  <div className="border rounded-lg flex flex-col bg-card h-full">
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">PDF预览</h3>
+                        <p className="text-muted-foreground">
+                          选择PDF文件进行预览
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Markdown Preview 占位符 */}
+              <div className="flex flex-col">
+                <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                <div 
+                  className="border rounded-lg flex flex-col bg-card flex-1" 
+                  style={{ 
+                    minHeight: MIN_CONTENT_HEIGHT
+                  }}
+                >
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Markdown预览</h3>
+                      <p className="text-muted-foreground">
+                        解析后将显示Markdown内容
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
