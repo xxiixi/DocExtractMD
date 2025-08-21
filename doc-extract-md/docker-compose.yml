@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # 前端应用服务
+  doc-extract-md:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doc-extract-md-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_MINERU_API_URL=http://10.81.117.115:8501/mineru
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - doc-extract-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 开发环境服务（可选）
+  doc-extract-md-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: doc-extract-md-dev
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_MINERU_API_URL=http://10.81.117.115:8501/mineru
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    networks:
+      - doc-extract-network
+    profiles:
+      - dev
+
+networks:
+  doc-extract-network:
+    driver: bridge
+
+volumes:
+  uploads:
+    driver: local
