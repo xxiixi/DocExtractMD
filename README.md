@@ -34,7 +34,7 @@ export MINERU_MODEL_SOURCE=local
 `cd doc-extract-md`
 `npm run dev`
 
-### Start mineru local (推荐方式)
+### Start mineru local (new)
 
 使用启动脚本（自动设置环境变量）：
 ```bash

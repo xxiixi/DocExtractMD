@@ -322,6 +322,46 @@ export default function PreviewSection({
                     </div>
                   )}
                 </div>
+              ) : (file.status === 'extracting' || file.status === 'converting') ? (
+                // 提取或转换中：显示PDF预览和对应加载状态
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    {/* PDF Preview - 保持显示 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                      <div className="flex-1 overflow-hidden">
+                        {file.file && (
+                          <PDFPreviewSimple file={file.file} className="h-full" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* 提取/转换加载状态 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                      <div 
+                        className="border rounded-lg flex flex-col bg-card flex-1" 
+                        style={{ 
+                          minHeight: MIN_CONTENT_HEIGHT
+                        }}
+                      >
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <Clock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">
+                              {file.status === 'extracting' ? '正在提取内容...' : '正在转换格式...'}
+                            </h3>
+                            <p className="text-muted-foreground mb-4">
+                              {file.currentStep || (file.status === 'extracting' ? '正在从PDF中提取文本和图像' : '正在将内容转换为Markdown格式')}
+                            </p>
+                            <Progress value={file.progress} className="w-64 mx-auto" />
+                            <p className="text-sm text-muted-foreground mt-2">{file.progress}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ) : file.status === 'uploaded' && file.type === 'pdf' ? (
                 // 文件已上传但未解析：显示PDF预览和准备解析提示
                 <div className="flex-1 flex flex-col min-h-0">
@@ -359,25 +399,77 @@ export default function PreviewSection({
                   </div>
                 </div>
               ) : file.status === 'error' ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">处理失败</h3>
-                    <p className="text-muted-foreground">
-                      {file.error || '处理文件时发生错误。'}
-                    </p>
+                // 错误状态：显示PDF预览和错误信息
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    {/* PDF Preview - 保持显示 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                      <div className="flex-1 overflow-hidden">
+                        {file.file && (
+                          <PDFPreviewSimple file={file.file} className="h-full" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* 错误信息 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                      <div 
+                        className="border rounded-lg flex flex-col bg-card flex-1" 
+                        style={{ 
+                          minHeight: MIN_CONTENT_HEIGHT
+                        }}
+                      >
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <AlertCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">处理失败</h3>
+                            <p className="text-muted-foreground">
+                              {file.error || '处理文件时发生错误。'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : file.status === 'processing' ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-                    <Clock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">正在处理文档...</h3>
-                    <p className="text-muted-foreground mb-4">
-                      {file.currentStep || '文档正在被解析和转换'}
-                    </p>
-                    <Progress value={file.progress} className="w-64 mx-auto" />
-                    <p className="text-sm text-muted-foreground mt-2">{file.progress}%</p>
+                // 处理中：显示PDF预览和Markdown加载状态
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    {/* PDF Preview - 保持显示 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">PDF Preview</h4>
+                      <div className="flex-1 overflow-hidden">
+                        {file.file && (
+                          <PDFPreviewSimple file={file.file} className="h-full" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Markdown Preview - 显示加载状态 */}
+                    <div className="flex flex-col">
+                      <h4 className="text-sm font-medium mb-2">Markdown Preview</h4>
+                      <div 
+                        className="border rounded-lg flex flex-col bg-card flex-1" 
+                        style={{ 
+                          minHeight: MIN_CONTENT_HEIGHT
+                        }}
+                      >
+                        <div className="flex-1 flex items-center justify-center">
+                          <div className="text-center">
+                            <Clock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">正在处理文档...</h3>
+                            <p className="text-muted-foreground mb-4">
+                              {file.currentStep || '文档正在被解析和转换'}
+                            </p>
+                            <Progress value={file.progress} className="w-64 mx-auto" />
+                            <p className="text-sm text-muted-foreground mt-2">{file.progress}%</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (

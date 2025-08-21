@@ -14,19 +14,30 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleFileUpload = async (uploadedFiles: FileList) => {
+    console.log('handleFileUpload called with files:', uploadedFiles);
     const newFiles: UploadedFile[] = [];
 
     for (let i = 0; i < uploadedFiles.length; i++) {
       const file = uploadedFiles[i];
+      console.log('Processing file:', file.name, 'type:', file.type);
       // 只支持PDF文件
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        const fileId = Date.now().toString() + i;
+        // 使用更可靠的ID生成方式，避免重复
+        const fileId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${i}`;
         const newFile = FileProcessor.createFileObject(file, fileId);
         newFiles.push(newFile);
+        console.log('Created file object:', newFile);
+      } else {
+        console.log('Skipping non-PDF file:', file.name);
       }
     }
 
-    setFiles(prev => [...prev, ...newFiles]);
+    console.log('Adding new files to state:', newFiles);
+    setFiles(prev => {
+      const updated = [...prev, ...newFiles];
+      console.log('Updated files state:', updated);
+      return updated;
+    });
   };
 
   const handleParseFiles = async () => {
@@ -71,8 +82,10 @@ export default function Home() {
   };
 
   const clearAllFiles = () => {
+    console.log('Clearing all files');
     setFiles([]);
     setSelectedFile(null);
+    console.log('Files cleared, state reset');
   };
 
   const retryFile = async (fileId: string) => {

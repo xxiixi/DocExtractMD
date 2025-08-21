@@ -27,12 +27,17 @@ export default function UploadSection({
     e.preventDefault();
     setIsDragOver(false);
     const droppedFiles = e.dataTransfer.files;
+    console.log('Drop event with files:', droppedFiles);
     onFileUpload(droppedFiles);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input change event:', e.target.files);
     if (e.target.files) {
+      console.log('Calling onFileUpload with files:', e.target.files);
       onFileUpload(e.target.files);
+      // 重置输入框的值，允许重复选择相同文件
+      e.target.value = '';
     }
   };
 
@@ -74,6 +79,10 @@ export default function UploadSection({
                 accept=".pdf,application/pdf"
                 className="hidden"
                 onChange={handleFileInputChange}
+                onClick={(e) => {
+                  // 确保点击事件正常工作
+                  console.log('File input clicked');
+                }}
               />
             </label>
           </Button>
