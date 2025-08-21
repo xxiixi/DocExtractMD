@@ -42,6 +42,7 @@ export const FILE_STATUS = {
 export const MINERU_CONFIG = {
   // MinerU API服务地址
   API_URL: process.env.NEXT_PUBLIC_MINERU_API_URL || 'http://localhost:8000',
+  // API_URL: process.env.NEXT_PUBLIC_MINERU_API_URL || 'http://10.81.117.115:8501/mineru',
   
   // MinerU API端点
   ENDPOINTS: {
