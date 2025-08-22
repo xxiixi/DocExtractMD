@@ -4,11 +4,8 @@ const nextConfig: NextConfig = {
   // 启用独立输出模式，用于Docker部署
   output: 'standalone',
   
-  // 实验性功能
-  experimental: {
-    // 启用服务器组件
-    serverComponentsExternalPackages: ['pdfjs-dist'],
-  },
+  // 服务器外部包配置
+  serverExternalPackages: ['pdfjs-dist'],
   
   // 图片优化配置
   images: {
@@ -25,7 +22,7 @@ const nextConfig: NextConfig = {
   
   // 环境变量配置
   env: {
-    NEXT_PUBLIC_MINERU_API_URL: process.env.NEXT_PUBLIC_MINERU_API_URL || 'http://localhost:8000',
+    NEXT_PUBLIC_MINERU_API_URL: process.env.NEXT_PUBLIC_MINERU_API_URL || 'http://10.81.117.115:8501/mineru',
   },
 };
 
