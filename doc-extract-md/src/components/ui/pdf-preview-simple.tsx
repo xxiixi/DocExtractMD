@@ -2,16 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Download,
   FileText,
-  ExternalLink,
-  ZoomIn,
-  ZoomOut
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 interface PDFPreviewSimpleProps {
   file: File;
@@ -44,18 +37,6 @@ export default function PDFPreviewSimple({ file, className }: PDFPreviewSimplePr
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
-
-  const openInNewTab = () => {
-    window.open(pdfUrl, '_blank');
-  };
-
-  const zoomIn = () => {
-    setScale(prev => Math.min(prev + 0.25, 3));
-  };
-
-  const zoomOut = () => {
-    setScale(prev => Math.max(prev - 0.25, 0.25));
   };
 
   if (loading) {
